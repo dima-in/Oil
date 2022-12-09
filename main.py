@@ -37,16 +37,6 @@ def enrty_page() -> 'html':
 
 @app.route('/showorder', methods=['POST'])
 def show_order_list() -> 'html':
-#    name = request.form['name']
-#    surname = request.form['surname']
-#    phone = request.form['phone']
-#    address = request.form['address']
-#    oil = request.form['oil']
-#    vol = int(request.form['volume'])
-#    count = int(request.form['count'])
-#    price = 900
-#    tot = price * count
-#    order = OilOrder(datetime.now().replace(microsecond=0), name, surname, phone, address, oil, vol, price, tot)
     make_order()
     with open('заказы.txt') as orders:
         list_order = []

@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+
+{% block body %}
+
+<h2>{{ the_title }}</h2>
+
+<form method='POST' action='/showorder'>
+<table>
+<p>{{ the_invitation }}</p>
+<tr><td>Имя:</td><td><input name='name' type='TEXT' width='60'></td></tr>
+<tr><td>Фамилия:</td><td><input name='surname' type='TEXT' width='60'></td></tr>
+<tr><td>Телефон:</td><td><input name='phone' type='TEXT' width='60'></td></tr>
+<tr><td>Адрес:</td><td><input name='address' type='TEXT' width='60'></td></tr>
+<tr><td>Масло:</td><td><input name='oil' type='TEXT' width='60'></td></tr>
+<tr><td>Объем:</td><td><input name='volume' type='NUMBER' width='60'></td></tr>
+<tr><td>Количество:</td><td><input name='count' type='NUMBER' width='60'></td></tr>
+</table>
+<p>{{ the_clickbutton }}</p>
+<p><input value='Жми!' type='SUBMIT'></p>
+</form>
+
+{% endblock %}

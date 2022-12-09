@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block body %}
+
+<h2>{{ the_title }}</h2>
+
+<p>{{ the_submit_data }}:</p>
+<table>
+<tr><td>Phrase:</td><td>{{ the_phrase }}</td></tr>
+<tr><td>Letters:</td><td>{{ the_letters }}</td></tr>
+</table>
+
+<p>Когда "{{the_phrase }}" поиск по "{{ the_letters }}", получаются следющие результаты:</p>
+<h3>{{ the_results }}</h3>
+
+{% endblock %}

@@ -21,7 +21,7 @@ def make_order():
 
 
 def save_order(order):
-    with open('заказы.txt', 'a') as orders:
+    with open('заказы.txt', 'a')  as orders:
         print(order.data, order.name, order.surname,
               order.phone, order.address, order.oil_type,
               order.volume, order.price, order.total_price, file=orders, sep='|')

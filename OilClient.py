@@ -1,7 +1,7 @@
 from Product import Product
 
 
-class OilClient(Product):
+class OilClient():
 
     def __init__(self, name, surname, phone, address, oil_types: str, volume: int, price: int):
         super().__init__(oil_types, volume, price)

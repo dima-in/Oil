@@ -1,18 +1,13 @@
-from UseDatabase import UseDatabase
+from UseDatabase import UseDatabase, config
 
 
 def create_table():
-    config = {
-        'host': '127.0.0.1',
-        'user': 'oilorder_admin',
-        'password': 'oilpasswd',
-        'database': 'oilordersDB'
-    }
+
     with UseDatabase(config) as cursor:
         # Создание таблицы orders (если она не существует)
         cursor.execute("""CREATE TABLE IF NOT EXISTS orders (
                           id INT PRIMARY KEY AUTO_INCREMENT,
-                          data DATE NOT NULL,
+                          date DATE NOT NULL,
                           shipping_date DATE NOT NULL,
                           total_price FLOAT NOT NULL
                           )""")
@@ -32,8 +27,9 @@ def create_table():
                           id INT PRIMARY KEY AUTO_INCREMENT,
                           order_id INT NOT NULL,
                           name VARCHAR(50) NOT NULL,
-                          sur_name VARCHAR(50) NOT NULL,
+                          surname VARCHAR(50) NOT NULL,
                           phone VARCHAR(20) NOT NULL,
+                          address VARCHAR(20) NOT NULL,
                           FOREIGN KEY (order_id) REFERENCES orders(id)
                           )""")
 

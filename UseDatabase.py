@@ -24,12 +24,13 @@ class SQLError(Exception):
     """
     pass
 
+
 config = {
-        'host': '127.0.0.1',
-        'user': 'oilorder_admin',
-        'password': 'oilpasswd',
-        'database': 'oilordersDB'
-    }
+    'host': '127.0.0.1',
+    'user': 'oilorder_admin',
+    'password': 'oilpasswd',
+    'database': 'oilordersDB'
+}
 
 
 class UseDatabase:

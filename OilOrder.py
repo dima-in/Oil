@@ -1,20 +1,20 @@
 from datetime import datetime
 from Customer import Customer
-from Product import Product
+from OrderItem import OrderItem
 
 
-class OilOrder(Customer, Product):
+class OilOrder:
 
-    def __init__(self, data: datetime, shipping_date: datetime):
+    def __init__(self, customer, data: datetime, shipping_date: datetime):
+        self.customer = customer
         self.data = data
         self.shipping_date = shipping_date
-        self.product_basket = []
+        self.order_details = []
         self.total_price = 0
 
-    def add_bottle(self, oil_name, volume, price):
-        product = Product(oil_name=oil_name, volume=volume, price=price)
-        return self.product_basket.append(product)
+    def add_bottle(self, product):
+        return self.order_details.append(product)
 
     def calculate_total_price(self):
-        self.total_price = sum([product.price for product in self.product_basket])
+        self.total_price = sum([float(product.price*product.count) for product in self.order_details])
         return self.total_price

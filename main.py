@@ -1,8 +1,9 @@
 from datetime import datetime
 from OilOrder import OilOrder
-from Product import Product
+from Catalog import get_oil_prices
+from OrderItem import OrderItem
 from UseDatabase import config
-import mysql.connector
+from Customer import Customer
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi import Form
@@ -16,18 +17,19 @@ templates = Jinja2Templates(directory='templates')
 
 
 @app.get('/entry', response_class=HTMLResponse)
-async def view(request: Request):
+def view(request: Request):
     """
     entry() - обработчик GET-запроса для вывода начального шаблона
     """
-    context = {"request": request, 'title': "Начальная страница"}
+    oil_price_list = get_oil_prices()
+    for item in oil_price_list:
+        print(f'item oil_price_list in view = {item}')
+    context = {"request": request, 'title': "Начальная страница", 'oil_price_list': oil_price_list}
     return templates.TemplateResponse('inputdata.html', context)
-
 
 
 @app.post('/createorder')
 async def create_order(request: Request):
-
     with UseDatabase(config) as cursor:
         form_data = await request.form()
 
@@ -36,67 +38,62 @@ async def create_order(request: Request):
         surname = form_data.get('surname')
         phone = form_data.get('phone')
         address = form_data.get('address')
-        #shipping_date = form_data.get('shipping_date')
+        products = form_data.getlist('select_products')
         shipping_date = datetime.strptime(form_data.get('shipping_date'), '%Y-%m-%d')  # парсим дату доставки из формы
 
-        order = OilOrder(data=date, shipping_date=shipping_date)
-
-        for key in order.product_basket:  # получаем корзину зааза из формы
-            if 'oil_name' in key:  # если ключ соответствует oil_name
-                form_index = key.split('_')[-1]  # получаем индекс из oil_name_1
-                oil_name = form_data.get(key)  # получаем значение oil_name добавляя индеск
-                volume = form_data.get('volume_{}'.format(form_index))  # получаем значение volume_ добавляя индеск
-                price = form_data.get('price_{}'.format(form_index))  # получаем значение volume_ добавляя индеск
-                order.add_bottle(oil_name=oil_name, volume=volume, price=price)
-            else:
-                order.add_bottle(oil_name=oil_name, volume=volume, price=price)
-
-        # сохраняем заказ в БД
-        _SQL_save_order = """INSERT INTO orders (date, shipping_date, total_price) 
-                            VALUES (%s, %s, %s)"""
-        cursor.execute(_SQL_save_order, (date, shipping_date, order.calculate_total_price()))
-
-        order_id = cursor.lastrowid  # получаем ID заказа
-
-        _SQL_select_customer = """ select name, surname, phone FROM customers 
-                WHERE name=%s AND surname=%s AND phone=%s"""
-        cursor.execute(_SQL_select_customer, (name, surname, phone))
+        """запрос в БД осуществляет поикс клиента по номеру телефона """
+        _SQL_select_customer = """ select id, name, surname, phone FROM customers 
+                        WHERE phone=%s"""
+        cursor.execute(_SQL_select_customer, (phone,))
         existing_customer = cursor.fetchone()  # получаем следующую строку из запроса
 
-        #  если запись о клиенте в БД не найдена, создать нового клиента
+        """если по указанному номеру клиент  не найден, создать нового клиента"""
         if existing_customer is None:
-            _SQL_create_customer = """insert into customers (order_id, name, surname, phone, address)
-            VALUES (%s, %s, %s, %s, %s)"""
-            cursor.execute(_SQL_create_customer, (order_id, name, surname, phone, address))
+            _SQL_create_customer = """insert into customers (name, surname, phone, address)
+                    VALUES (%s, %s, %s, %s)"""
+            cursor.execute(_SQL_create_customer, (name, surname, phone, address))
             customer_id = cursor.lastrowid  # получаем ID нового клиента
         else:
             customer_id = existing_customer[0]  # получаем ID существующего клиента
 
-        for product in order.product_basket:
-            print(f'product = {product}')
-            _SQL_save_order_basket = """INSERT INTO order_basket (order_id, oil_name, volume, price)
-            VALUES (%s, %s, %s, %s)"""
-            cursor.execute(_SQL_save_order_basket, (order_id, product.oil_name, product.volume, product.price))
+        customer = Customer(id=customer_id, name=name, surname=surname, phone=phone, address=address)
+
+        order = OilOrder(customer, data=date, shipping_date=shipping_date)
+        # сохраняем заказ в БД
+        _SQL_save_order = """INSERT INTO orders (customer_id, date, shipping_date, total_price, status) 
+                                    VALUES (%s, %s, %s, %s, 0)"""
+        cursor.execute(_SQL_save_order, (customer_id, date, shipping_date, order.calculate_total_price()))
+        order_id = cursor.lastrowid  # получаем ID заказа
+
+        for product in products:  # получаем корзину заказа из формы
+            oil_name, volume, price = product.split('_')
+            product = OrderItem(oil_name=oil_name, volume=volume, count=1, price=price)
+            order.add_bottle(product)
+
+        for product in order.order_details:
+            _SQL_save_order_details = """INSERT INTO order_details (order_id, oil_name, volume, count, price)
+            VALUES (%s, %s, %s, %s, %s)"""
+            cursor.execute(_SQL_save_order_details,
+                           (order_id, product.oil_name, product.volume, product.count, product.price))
 
 
-"""@app.get('/entryorder')
-@app.get('/')
-def enrty_page() -> 'html':
-    return render_template('entryorder.html', the_title='Выжимальня приветствует тебя!',
-                           the_invitation='Введите данные заказа:',
-                           the_clickbutton='Когда будете готовы, нажмите эту кнопку:')
+@app.get('/vieworders')
+def show_orders(request: Request):
+    with UseDatabase(config) as cursor:
+        _SQL_select_all = """SELECT * FROM orders 
+                            JOIN order_details ON orders.id = order_details.order_id
+                            JOIN customers ON order_details.customer_id = customers.id;
+                            """
+        _SQL_select_all2 = """SELECT * FROM order_details 
+                            JOIN customers ON order_details.customer_id = customers.id;
+                            JOIN orders ON customers.order_id = orders.id
 """
+        cursor.execute(_SQL_select_all2)
+        order = cursor.fetchall()
+        context = {'request': request, 'title': "Начальная страница", 'order': order}
+        return templates.TemplateResponse('vieworder.html', context)
 
-"""@app.post('/showorder')
-def show_order_list() -> 'html':
-    with open('заказы.txt') as orders:
-        list_order = []
-        for line in orders:
-            list_order.append(line.split('|'))
-    titles = ('Клиент', 'Масло', 'Стоимость', 'Дата')
-    return render_template('showorder.html', the_row_order=titles, the_data=list_order, )
 
-"""
 # **********************************************************************************************
 
 

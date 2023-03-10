@@ -1,43 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Title</title>
+    <title>Создание заказа</title>
 </head>
 <body>
-<h1>Create Order</h1>
     <form method="post" action="/createorder">
-        <label for="name">Name:</label>
-        <input type="text" name="name" id="name" required><br><br>
+        <label for="name">Имя:</label>
+        <input type="text" name="name" id="name" required><br>
 
-        <label for="surname">Surname:</label>
-        <input type="text" name="surname" id="surname" required><br><br>
+        <label for="surname">Фамилия:</label>
+        <input type="text" name="surname" id="surname" required><br>
 
-        <label for="phone">Phone:</label>
-        <input type="tel" name="phone" id="phone" required><br><br>
+        <label for="phone">Телефон:</label>
+        <input type="tel" name="phone" id="phone" required><br>
 
-        <label for="address">Address:</label>
-        <input type="text" name="address" id="address" required><br><br>
+        <label for="address">Адрес:</label>
+        <input type="text" name="address" id="address" required><br>
 
-        <label for="shipping_date">Shipping Date:</label>
-        <input type="date" name="shipping_date" id="shipping_date" required><br><br>
+        <label for="shipping_date">Дата доставки:</label>
+        <input type="date" name="shipping_date" id="shipping_date" required><br>
 
-        <label for="product_basket">Product Basket:</label>
-        {% for i in range(3) %}
-        <div>
-            <label for="oil_name_{{ i }}">Oil Name:</label>
-            <input type="text" name="oil_name_{{ i }}" id="oil_name_{{ i }}" required>
 
-            <label for="volume_{{ i }}">Volume:</label>
-            <input type="number" name="volume_{{ i }}" id="volume_{{ i }}" required>
 
-            <label for="price_{{ i }}">Price:</label>
-            <input type="number" name="price_{{ i }}" id="price_{{ i }}" required>
-        </div>
+
+        {% if oil_price_list %}
+    <label for="products">Продукты чекбокс:</label>
+        {% for oil_name, volume, price in oil_price_list %}
+        <input type="checkbox" id="product_{{ loop.index }}" name="select_products" value="{{ oil_name }}_{{ volume }}_{{ price }}">
+        <label for="product_{{ loop.index }}">{{ oil_name }} {{ volume }}мл - {{ price }} руб/л</label><br>
         {% endfor %}
+        {% endif %}
 
-        <br>
-        <button type="submit">Create Order</button>
+
+
+        <input type="submit" value="Создать заказ">
     </form>
 </body>
 </html>

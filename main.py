@@ -42,33 +42,37 @@ async def create_order(request: Request):
         shipping_date = datetime.strptime(form_data.get('shipping_date'), '%Y-%m-%d')  # парсим дату доставки из формы
 
         """запрос в БД осуществляет поикс клиента по номеру телефона """
-        _SQL_select_customer = """ select id, name, surname, phone FROM customers 
+        _SQL_select_customer = """ SELECT id, name, surname, phone FROM customers 
                         WHERE phone=%s"""
         cursor.execute(_SQL_select_customer, (phone,))
         existing_customer = cursor.fetchone()  # получаем следующую строку из запроса
 
         """если по указанному номеру клиент  не найден, создать нового клиента"""
         if existing_customer is None:
-            _SQL_create_customer = """insert into customers (name, surname, phone, address)
+            _SQL_create_customer = """INSERT INTO customers (name, surname, phone, address)
                     VALUES (%s, %s, %s, %s)"""
             cursor.execute(_SQL_create_customer, (name, surname, phone, address))
             customer_id = cursor.lastrowid  # получаем ID нового клиента
         else:
             customer_id = existing_customer[0]  # получаем ID существующего клиента
-
+        """создание экземпляра клиента customer для передачи в экземпляр заказа order"""
         customer = Customer(id=customer_id, name=name, surname=surname, phone=phone, address=address)
-
+        """создание экземпляр заказа"""
         order = OilOrder(customer, data=date, shipping_date=shipping_date)
-        # сохраняем заказ в БД
-        _SQL_save_order = """INSERT INTO orders (customer_id, date, shipping_date, total_price, status) 
-                                    VALUES (%s, %s, %s, %s, 0)"""
-        cursor.execute(_SQL_save_order, (customer_id, date, shipping_date, order.calculate_total_price()))
-        order_id = cursor.lastrowid  # получаем ID заказа
 
-        for product in products:  # получаем корзину заказа из формы
+        """извлечение заказа из списка формы products = form_data.getlist('select_products'),
+        создание экземпляра продукта product и добавление с список деталей заказа
+        """
+        for product in products:  # получаем детали заказа из формы
             oil_name, volume, price = product.split('_')
             product = OrderItem(oil_name=oil_name, volume=volume, count=1, price=price)
             order.add_bottle(product)
+
+        """сохранение заказ в БД"""
+        _SQL_save_order = """INSERT INTO orders (customer_id, date, shipping_date, total_price, status) 
+                                    VALUES (%s, %s, %s, %s, %s)"""
+        cursor.execute(_SQL_save_order, (customer_id, date, shipping_date, order.calculate_total_price(), 0))
+        order_id = cursor.lastrowid  # получаем ID заказа
 
         for product in order.order_details:
             _SQL_save_order_details = """INSERT INTO order_details (order_id, oil_name, volume, count, price)

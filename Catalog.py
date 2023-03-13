@@ -1,9 +1,6 @@
-from GptIntegration import table_data
+from ExtractPDFPriceListTable import extract_price
 
 from UseDatabase import UseDatabase, config
-
-
-
 
 
 def create_price_lict_table():
@@ -15,16 +12,17 @@ def create_price_lict_table():
                         price FLOAT NOT NULL
                         )""")
 
-#create_price_lict_table()
 
-def foo():
-    table = table_data[0]
+create_price_lict_table()
+
+
+def price_table_to_dict():
+    """
+
+    :return:
+    """
+    table = extract_price()
     for product in table:
-        #print(f'product = {product}')
-        oil_name = product[0]
-
-        #print(f'oil_name = {oil_name}')
-        print(product[0], product[1], product[2])
         oil_dict = {}
         for row in product[1:]:
             name = row[0]
@@ -39,9 +37,9 @@ def foo():
             return oil_dict
 
 
-def add_pricelist_row():
+def add_price_row():
     with UseDatabase(config) as cursor:
-        oil_dict = foo()
+        oil_dict = price_table_to_dict()
         for name, prices in oil_dict.items():
             for volume, price in prices.items():
                 # Вставка данных в таблицу
@@ -49,16 +47,13 @@ def add_pricelist_row():
                 val = (name, volume, price)
                 cursor.execute(sql, val)
 
-                cursor.execute(sql, val)
-#add_pricelist_row()
 
-
+# add_price_row()
 
 
 def get_oil_prices() -> list:
     with UseDatabase(config) as cursor:
-        _SQL_select_oil_prices = """SELECT oil_name, volume, price FROM price_list"""
+        _SQL_select_oil_prices = """SELECT oil_name, volume, price FROM price_list WHERE price > 0"""
         cursor.execute(_SQL_select_oil_prices)
         oil_price_list = cursor.fetchall()
-        #print(f'oil_price_list in PriceList = {oil_price_list}')
         return oil_price_list

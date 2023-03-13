@@ -23,6 +23,19 @@ def create_table():
                                 """)
         cursor.execute("""INSERT INTO order_statuses VALUES (2, 'done')
                                 """)
+        cursor.execute("""INSERT INTO order_statuses VALUES (3, 'неоплачен')
+                                """)
+        cursor.execute("""INSERT INTO order_statuses VALUES (4, 'получена предоплата')
+                                """)
+        cursor.execute("""INSERT INTO order_statuses VALUES (2, 'оптачен')
+                                """)
+
+        cursor.execute("""CREATE TABLE IF NOT EXISTS statuses_list (
+                                        id INT PRIMARY KEY,
+                                        order_id INT NOT NULL,
+                                        order_status INT NOT NULL,
+                                        datetime DATETIME
+                                        )""")
 
         # Создание таблицы orders (если она не существует)
         cursor.execute("""CREATE TABLE IF NOT EXISTS orders (

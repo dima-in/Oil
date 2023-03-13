@@ -1,4 +1,7 @@
 from datetime import datetime
+
+from starlette.staticfiles import StaticFiles
+
 from OilOrder import OilOrder
 from Catalog import get_oil_prices
 from OrderItem import OrderItem
@@ -13,6 +16,7 @@ from fastapi import FastAPI
 from UseDatabase import UseDatabase
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory='templates')
 
 
@@ -22,13 +26,11 @@ def view(request: Request):
     entry() - обработчик GET-запроса для вывода начального шаблона
     """
     oil_price_list = get_oil_prices()
-    for item in oil_price_list:
-        print(f'item oil_price_list in view = {item}')
     context = {"request": request, 'title': "Начальная страница", 'oil_price_list': oil_price_list}
     return templates.TemplateResponse('inputdata.html', context)
 
 
-@app.post('/createorder')
+@app.post('/create-order')
 async def create_order(request: Request):
     with UseDatabase(config) as cursor:
         form_data = await request.form()
@@ -38,7 +40,8 @@ async def create_order(request: Request):
         surname = form_data.get('surname')
         phone = form_data.get('phone')
         address = form_data.get('address')
-        products = form_data.getlist('select_products')
+        products = form_data.get('selected_products')
+        print(f'products =  {products}')
         shipping_date = datetime.strptime(form_data.get('shipping_date'), '%Y-%m-%d')  # парсим дату доставки из формы
 
         """запрос в БД осуществляет поикс клиента по номеру телефона """
@@ -55,6 +58,7 @@ async def create_order(request: Request):
             customer_id = cursor.lastrowid  # получаем ID нового клиента
         else:
             customer_id = existing_customer[0]  # получаем ID существующего клиента
+
         """создание экземпляра клиента customer для передачи в экземпляр заказа order"""
         customer = Customer(id=customer_id, name=name, surname=surname, phone=phone, address=address)
         """создание экземпляр заказа"""
@@ -64,8 +68,9 @@ async def create_order(request: Request):
         создание экземпляра продукта product и добавление с список деталей заказа
         """
         for product in products:  # получаем детали заказа из формы
-            oil_name, volume, price = product.split('_')
-            product = OrderItem(oil_name=oil_name, volume=volume, count=1, price=price)
+            print(f'product in for {product}')
+            oil_name, volume, price, count = product.split(',')
+            product = OrderItem(oil_name=oil_name, volume=volume, count=count, price=price)
             order.add_bottle(product)
 
         """сохранение заказ в БД"""
@@ -81,7 +86,7 @@ async def create_order(request: Request):
                            (order_id, product.oil_name, product.volume, product.count, product.price))
 
 
-@app.get('/vieworders')
+@app.get('/view-orders')
 def show_orders(request: Request):
     with UseDatabase(config) as cursor:
         _SQL_select_all = """SELECT * FROM orders 
@@ -91,7 +96,7 @@ def show_orders(request: Request):
         _SQL_select_all2 = """SELECT * FROM order_details 
                             JOIN customers ON order_details.customer_id = customers.id;
                             JOIN orders ON customers.order_id = orders.id
-"""
+                            """
         cursor.execute(_SQL_select_all2)
         order = cursor.fetchall()
         context = {'request': request, 'title': "Начальная страница", 'order': order}

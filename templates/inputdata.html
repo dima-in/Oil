@@ -2,38 +2,85 @@
 <html>
 <head>
     <title>Создание заказа</title>
+    <link rel="stylesheet" href="./static/hf.css" />
 </head>
 <body>
-    <form method="post" action="/createorder">
-        <label for="name">Имя:</label>
-        <input type="text" name="name" id="name" required><br>
+    <form method="post" action="/create-order">
+        <div class="customer-details">
+            <div>
+                <label for="name">Имя:</label>
+                <input type="text" name="name" id="name" required><br>
 
-        <label for="surname">Фамилия:</label>
-        <input type="text" name="surname" id="surname" required><br>
+                <label for="surname">Фамилия:</label>
+                <input type="text" name="surname" id="surname" required><br>
 
-        <label for="phone">Телефон:</label>
-        <input type="tel" name="phone" id="phone" required><br>
+                <label for="phone">Телефон:</label>
+                <input type="tel" name="phone" id="phone" required><br>
 
-        <label for="address">Адрес:</label>
-        <input type="text" name="address" id="address" required><br>
+                <label for="address">Адрес:</label>
+                <input type="text" name="address" id="address" required><br>
 
-        <label for="shipping_date">Дата доставки:</label>
-        <input type="date" name="shipping_date" id="shipping_date" required><br>
-
-
-
+                <label for="shipping_date">Дата доставки:</label>
+                <input type="date" name="shipping_date" id="shipping_date" required><br>
+            </div>
+            <div class="order-info">
+                <h2>Выбранные продукты</h2>
+                <div id="products-list"></div>
+                <h2>Стоимость заказа</h2>
+                <div id="total-price"></div>
+            </div>
+            <div class="create-button">
+                <input type="submit" value="Создать заказ">
+            </div>
+        </div>
 
         {% if oil_price_list %}
-    <label for="products">Продукты чекбокс:</label>
-        {% for oil_name, volume, price in oil_price_list %}
-        <input type="checkbox" id="product_{{ loop.index }}" name="select_products" value="{{ oil_name }}_{{ volume }}_{{ price }}">
-        <label for="product_{{ loop.index }}">{{ oil_name }} {{ volume }}мл - {{ price }} руб/л</label><br>
-        {% endfor %}
+            <div class="product-wrap">
+                {% for oil_name, volume, price in oil_price_list %}
+                    <div class="product-card" >
+                        <label for="{{ oil_name }}_{{ volume }}">{{ oil_name }} {{ volume }}мл - {{ price }} руб/л</label>
+                        <input type="number" name="{{ oil_name }}_{{ volume }}" id="{{ oil_name }}_{{ volume }}" value="0" min="0" class="product-quantity">
+                    </div>
+                {% endfor %}
+            </div>
         {% endif %}
 
+            <script>
+                const productsList = document.getElementById('products-list');
+                const totalPrice = document.getElementById('total-price');
 
+                function updateOrderInfo() {
+                let selectedProducts = [];
+                let selectedNameVolumePrice = [];
+                let priceSum = 0;
+                let quantity
+                let oil_name = '{{ oil_name }}';
+                let volume = '{{ volume }}';
+                let price = '{{ price }}';
 
-        <input type="submit" value="Создать заказ">
+                {% for oil_name, volume, price in oil_price_list %}
+                    quantity = parseInt(document.getElementById('{{ oil_name }}_{{ volume }}').value);
+                    if (quantity > 0) {
+                    selectedProducts.push(`{{oil_name}} {{volume}}мл x ${quantity}`);
+                    priceSum += quantity * {{ price }};
+                }
+                {% endfor %}
+
+                document.getElementById('selected-products').value = selectedProducts.join(',');
+                productsList.innerHTML = selectedProducts.join('<br>');
+
+                totalPrice.innerHTML = `${priceSum} руб.`;
+            }
+
+            // вызываем функцию updateOrderInfo при изменении количества товаров
+                document.querySelectorAll('input[type="number"]').forEach(input => {
+                input.addEventListener('input', updateOrderInfo);
+            });
+
+            // вызываем функцию updateOrderInfo при загрузке страницы
+                window.addEventListener('load', updateOrderInfo);
+
+            </script>
+        <input type="hidden" name="selected_products" id="selected-products" value="">
     </form>
 </body>
-</html>

@@ -1,7 +1,5 @@
 from datetime import datetime
-
 from starlette.staticfiles import StaticFiles
-
 from OilOrder import OilOrder
 from Catalog import get_oil_prices
 from OrderItem import OrderItem
@@ -67,10 +65,11 @@ async def create_order(request: Request):
         """извлечение заказа из списка формы products = form_data.getlist('select_products'),
         создание экземпляра продукта product и добавление с список деталей заказа
         """
-        for product in products:  # получаем детали заказа из формы
-            print(f'product in for {product}')
-            oil_name, volume, price, count = product.split(',')
-            product = OrderItem(oil_name=oil_name, volume=volume, count=count, price=price)
+
+        for product in products.split(','):  # получаем детали заказа из формы
+            oil_name, volume, price, count = product.split('_')
+            product = OrderItem(oil_name=oil_name, volume=int(volume.replace('мл', '')),
+                                count=int(count.replace('x ', '')), price=float(price.replace('руб', '')))
             order.add_bottle(product)
 
         """сохранение заказ в БД"""
@@ -90,14 +89,15 @@ async def create_order(request: Request):
 def show_orders(request: Request):
     with UseDatabase(config) as cursor:
         _SQL_select_all = """SELECT * FROM orders 
+                            JOIN customers ON orders.customer_id = customers.id
+                            JOIN order_details ON orders.id = order_details.order_id;
+                            """
+        _SQL_select_all2 = """SELECT * FROM orders 
+                            JOIN customers ON orders.customer_id = customers.id
                             JOIN order_details ON orders.id = order_details.order_id
-                            JOIN customers ON order_details.customer_id = customers.id;
+                            JOIN statuses_list ON orders.id = statuses_list.order_id;
                             """
-        _SQL_select_all2 = """SELECT * FROM order_details 
-                            JOIN customers ON order_details.customer_id = customers.id;
-                            JOIN orders ON customers.order_id = orders.id
-                            """
-        cursor.execute(_SQL_select_all2)
+        cursor.execute(_SQL_select_all)
         order = cursor.fetchall()
         context = {'request': request, 'title': "Начальная страница", 'order': order}
         return templates.TemplateResponse('vieworder.html', context)

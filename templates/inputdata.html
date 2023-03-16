@@ -40,6 +40,7 @@
                     <div class="product-card" >
                         <label for="{{ oil_name }}_{{ volume }}">{{ oil_name }} {{ volume }}мл - {{ price }} руб/л</label>
                         <input type="number" name="{{ oil_name }}_{{ volume }}" id="{{ oil_name }}_{{ volume }}" value="0" min="0" class="product-quantity">
+                        <input type="hidden" name="oil_name_{{ oil_name }}_volume_{{ volume }}_price" value="{{ price }}">
                     </div>
                 {% endfor %}
             </div>
@@ -61,12 +62,13 @@
                 {% for oil_name, volume, price in oil_price_list %}
                     quantity = parseInt(document.getElementById('{{ oil_name }}_{{ volume }}').value);
                     if (quantity > 0) {
-                    selectedProducts.push(`{{oil_name}} {{volume}}мл x ${quantity}`);
+                    selectedProducts.push(`{{oil_name}}_{{volume}}мл_{{price}}руб_x ${quantity}`);
                     priceSum += quantity * {{ price }};
                 }
                 {% endfor %}
 
                 document.getElementById('selected-products').value = selectedProducts.join(',');
+
                 productsList.innerHTML = selectedProducts.join('<br>');
 
                 totalPrice.innerHTML = `${priceSum} руб.`;

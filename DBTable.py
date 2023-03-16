@@ -1,7 +1,7 @@
 from UseDatabase import UseDatabase, config
 
 
-def create_table():
+def create_tables():
     with UseDatabase(config) as cursor:
         # Создание таблицы customers (если она не существует)
         cursor.execute("""CREATE TABLE IF NOT EXISTS customers (
@@ -37,6 +37,7 @@ def create_table():
                                         datetime DATETIME
                                         )""")
 
+
         # Создание таблицы orders (если она не существует)
         cursor.execute("""CREATE TABLE IF NOT EXISTS orders (
                           id INT PRIMARY KEY AUTO_INCREMENT,
@@ -61,4 +62,4 @@ def create_table():
                           )""")
 
 
-#create_table()
+create_tables()

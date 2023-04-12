@@ -1,6 +1,9 @@
 select {
-    height: 20em; /* задаем высоту списка */
     overflow-y: scroll; /* добавляем вертикальный скроллбар */
+}
+
+.status {
+  height: auto;
 }
 
 .product-wrap{

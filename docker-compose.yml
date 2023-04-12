@@ -1,0 +1,40 @@
+version: '3.9'
+
+networks:
+  oil_network:
+services:
+  db:
+    image: mysql:latest
+    container_name: mysql_DB
+    environment:
+      MYSQL_DATABASE: 'oilordersDB'
+      MYSQL_USER: 'oilorder_admin'
+      MYSQL_PASSWORD: 'oilpasswd'
+      MYSQL_ROOT_PASSWORD: 'rootoilorderspsw'
+    volumes:
+      - ./db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - oil_network
+    restart: always
+
+
+
+  web:
+    build: .
+    command: bash -c "uvicorn main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      DB_HOST: mysql_DB
+      DB_PORT: 3306
+      DB_USER: 'oilorder_admin'
+      DB_PASSWORD: 'oilpasswd'
+      DB_NAME: 'oilordersDB'
+
+    networks:
+      - oil_network
+    restart: always

@@ -1,6 +1,4 @@
 from datetime import datetime
-from Customer import Customer
-from OrderItem import OrderItem
 
 
 class OilOrder:

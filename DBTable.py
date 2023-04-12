@@ -1,5 +1,19 @@
 from UseDatabase import UseDatabase, config
 
+def create_oil_statuses():
+    with UseDatabase(config) as cursor:
+
+        cursor.execute("""CREATE TABLE IF NOT EXISTS order_statuses (
+                        id INT PRIMARY KEY,
+                        name VARCHAR(50) NOT NULL
+                        )""")
+
+        cursor.execute("""INSERT INTO order_statuses VALUES (0, 'новый')""")
+        cursor.execute("""INSERT INTO order_statuses VALUES (1, 'получена предоплата')""")
+        cursor.execute("""INSERT INTO order_statuses VALUES (2, 'готов к выдаче')""")
+        cursor.execute("""INSERT INTO order_statuses VALUES (3, 'завершен')""")
+        cursor.execute("""INSERT INTO order_statuses VALUES (4, 'отменен')""")
+        cursor.execute("""INSERT INTO order_statuses VALUES (5, 'ожидает предоплаты')""")
 
 def create_tables():
     with UseDatabase(config) as cursor:
@@ -12,28 +26,13 @@ def create_tables():
                           address VARCHAR(20) NOT NULL
                           )""")
 
-        cursor.execute("""CREATE TABLE IF NOT EXISTS order_statuses (
-                                id INT PRIMARY KEY,
-                                name VARCHAR(50) NOT NULL
-                                )""")
 
-        cursor.execute("""INSERT INTO order_statuses VALUES (0, 'new')
-                                """)
-        cursor.execute("""INSERT INTO order_statuses VALUES (1, 'in process')
-                                """)
-        cursor.execute("""INSERT INTO order_statuses VALUES (2, 'done')
-                                """)
-        cursor.execute("""INSERT INTO order_statuses VALUES (3, 'неоплачен')
-                                """)
-        cursor.execute("""INSERT INTO order_statuses VALUES (4, 'получена предоплата')
-                                """)
-        cursor.execute("""INSERT INTO order_statuses VALUES (2, 'оптачен')
-                                """)
 
         cursor.execute("""CREATE TABLE IF NOT EXISTS statuses_list (
-                                        id INT PRIMARY KEY,
+                                        id INT PRIMARY KEY AUTO_INCREMENT,
                                         order_id INT NOT NULL,
                                         order_status INT NOT NULL,
+                                        name VARCHAR(50) NOT NULL,
                                         datetime DATETIME
                                         )""")
 
@@ -62,4 +61,3 @@ def create_tables():
                           )""")
 
 
-create_tables()

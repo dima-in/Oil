@@ -9,30 +9,32 @@
       <thead>
         <tr>
           <th>ID заказа</th>
-          <th>ID клиента</th>
           <th>Имя клиента</th>
-          <th>Адрес клиента</th>
+          <th>Фамилия клиента</th>
           <th>Телефон клиента</th>
-          <th>ID товара</th>
-          <th>Название товара</th>
-          <th>Количество товара</th>
-          <th>Цена за единицу товара</th>
+          <th>Адрес клиента</th>
+          <th>Дата создания</th>
+          <th>Дата отгрузки</th>
+          <th>Состав заказа</th>
+          <th>Общая стоимость заказа</th>
+          <th>Статус заказа</th>
         </tr>
       </thead>
       <tbody>
-        {% for row in order %}
-        <tr>
-          <td>{{ row[0] }}</td>
-          <td>{{ row[5] }}</td>
-          <td>{{ row[11] }}</td>
-          <td>{{ row[12] }}</td>
-          <td>{{ row[13] }}</td>
-          <td>{{ row[6] }}</td>
-          <td>{{ row[7] }}</td>
-          <td>{{ row[8] }}</td>
-          <td>{{ row[9] }}</td>
-        </tr>
-        {% endfor %}
+            {% for row in order %}
+                <tr>
+                    <td>{{ row[0] }}</td>
+                    <td>{{ row[7] }}</td>
+                    <td>{{ row[8] }}</td>
+                    <td>{{ row[9] }}</td>
+                    <td>{{ row[10] }}</td>
+                    <td>{{ row[2] }}</td>
+                    <td>{{ row[3] }}</td>
+                    <td>{{ row[13] }}</td>
+                    <td>{{ row[4] }}</td>
+                    <td>{{ row[20] }}</td>
+                </tr>
+            {% endfor %}
       </tbody>
     </table>
   </body>

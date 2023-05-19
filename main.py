@@ -21,9 +21,22 @@ templates = Jinja2Templates(directory='templates')
 
 @app.get('/create-oil-statuses', response_class=HTMLResponse)
 def create_table_insert_items():
-    create_oil_statuses()
-    create_catalog_table()
-    add_price_row()
+    with UseDatabase(config) as cursor:
+        try:
+            # попытаться выполнить запрос для получения данных из таблицы oil-statuses
+            cursor.execute('SELECT * FROM oil_statuses')
+        except:
+            # таблица oil-statuses не существует, вызываем функцию create_table_insert_items()
+
+            create_oil_statuses()
+
+        try:
+            # попытаться выполнить запрос для получения данных из таблицы catalog
+            cursor.execute('SELECT * FROM catalog')
+        except:
+            # таблица catalog не существует, вызываем функцию create_table_insert_items()
+            create_catalog_table()
+            add_price_row()
 
 
 @app.get('/create-catalog-table', response_class=HTMLResponse)
@@ -49,6 +62,7 @@ def view(request: Request):
 
 @app.post('/create-order')
 async def create_order(request: Request):
+    create_table_insert_items()
     create_tables()
     with UseDatabase(config) as cursor:
         form_data = await request.form()

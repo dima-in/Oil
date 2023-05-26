@@ -18,9 +18,9 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory='templates')
 
-
-@app.get('/create-oil-statuses', response_class=HTMLResponse)
-def create_table_insert_items():
+# создает таблицы, необходимые перед вызовом view(request: Request)
+@app.get('/create-table-try-except-method', response_class=HTMLResponse)
+def create_table_try_except_method():
     with UseDatabase(config) as cursor:
         try:
             # попытаться выполнить запрос для получения данных из таблицы oil-statuses
@@ -38,15 +38,38 @@ def create_table_insert_items():
             create_catalog_table()
             add_price_row()
 
+# создает таблицы, необходимые перед вызовом view(request: Request)
+@app.get('/create-oil-statuses-catalog-table', response_class=HTMLResponse)
+def create_table_insert_items():
+    with UseDatabase(config) as cursor:
 
-@app.get('/create-catalog-table', response_class=HTMLResponse)
-def create_catalog():
-    pass
+            # попытаться выполнить запрос для получения данных из таблицы oil-statuses
+        if cursor.execute('SELECT * FROM oil_statuses'):
+            print('table oil_statuses exist')
+            # таблица oil-statuses не существует, вызываем функцию create_table_insert_items()
+        else:
+            print('table oil_statuses doesn"t exist')
+            create_oil_statuses()
 
 
-@app.get('/insert-catalog-items', response_class=HTMLResponse)
-def insert_catalog_items():
-    pass
+            # попытаться выполнить запрос для получения данных из таблицы catalog
+        if cursor.execute('SELECT * FROM catalog'):
+            print('table catalog exist')
+            # таблица catalog не существует, вызываем функцию create_table_insert_items()
+        else:
+            print('table catalog doesn"t exist')
+            create_catalog_table()
+            add_price_row()
+
+# создает таблицы, необходимые перед вызовом view(request: Request)
+@app.get('/create-first', response_class=HTMLResponse)
+def create_table_insert_items():
+    with UseDatabase(config) as cursor:
+
+            create_oil_statuses()
+            create_catalog_table()
+            add_price_row()
+
 
 
 @app.get('/', response_class=HTMLResponse)
@@ -98,7 +121,7 @@ async def create_order(request: Request):
         order = OilOrder(customer, data=date, shipping_date=shipping_date)
 
         """извлечение заказа из формы products = form_data.get('select_products'),
-        создание экземпляра продукта product и добавление с список деталей заказа
+        создание экземпляра продукта product и добавление в список деталей заказа
         """
 
         for product in products.split(','):  # получаем детали заказа из формы

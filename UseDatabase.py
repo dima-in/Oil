@@ -26,11 +26,12 @@ class SQLError(Exception):
 
 
 config = {
-    #'host': 'mysql_DB',
-    'host': '127.0.0.1',
+    'host': 'mysql_DB',
+    #'host': '127.0.0.1',
     'user': 'oilorder_admin',
     'password': 'oilpasswd',
-    'database': 'oilordersDB'
+    'database': 'oilordersDB',
+    'charset': 'utf8'
 }
 
 

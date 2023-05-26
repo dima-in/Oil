@@ -63,8 +63,8 @@ select {
 
 .order-info {
   position: relative;
-  margin: 20px;
-  border: 1px solid #ccc;
+  #margin: 20px;
+  #border: 1px solid #ccc;
   padding: 10px;
 }
 
@@ -87,7 +87,7 @@ select {
 body {
   font-family:      Verdana, Geneva, Arial, sans-serif;
   font-size:        medium;
-  background-color: darkcyan;
+  background-color: #5f879f;
   margin-top:       5%;
   margin-bottom:    5%;
   margin-left:      1%;
@@ -133,7 +133,7 @@ td, th {
 
 table {
 font-size:          1em;
-background-color:   #fafcff;
+background-color:   ##5f879f;
 border:             1px solid #909090;
 color:              #2a2a2a;
 padding:            5px 5px 2px;
@@ -154,6 +154,25 @@ create-button {
   text-align: right;
   font-size:        125%;
 }
+
+.navigate-button {
+  display: inline-block;
+  margin-left: 5px;
+  font-size:        115%;
+  padding: 10px 20px;
+  background-color: #4CAF50;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+
+.navigate-button:hover {
+  background-color: #0056b3;
+  text-decoration: none;
+}
+
+
 select {
   font-size:        125%;
 }

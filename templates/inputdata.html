@@ -7,7 +7,7 @@
 <body>
     <form method="post" action="/create-order">
         <div class="customer-details">
-            <div>
+            <div class="customer-info">
                 <label for="name">Имя:</label>
                 <input type="text" name="name" id="name" required><br>
 
@@ -41,6 +41,10 @@
             </div>
             <div class="create-button">
                 <input type="submit" value="Создать заказ">
+            </div>
+
+           <div class="view-button">
+                <a href="/view-orders" class="navigate-button">Посмотреть заказы</a>
             </div>
         </div>
 

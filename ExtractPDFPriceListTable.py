@@ -7,7 +7,7 @@ def price_table_to_dict():
     конвертирует csv таблицу в словарь
     :return:
     """
-    with open('tmp/price-page-1-table-1.csv') as table:
+    with open('tmp/price-page-1-table-1.csv', encoding='utf-8') as table:
         """
         читаем прайс-лист из csv файла
         получаем первую строку - header таблицы
@@ -30,6 +30,7 @@ def price_table_to_dict():
                     #print(f'row 0 = {row}')
                 prices.append([volumes[i].strip('\n').strip('"').replace('1 л', '1000').replace(' мл', ''), row.strip('\n').strip('"')])
             oil_dict[name] = prices
+        print(f'oil_dict = {oil_dict}')
     return oil_dict
 
-price_table_to_dict()
+#price_table_to_dict()

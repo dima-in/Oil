@@ -85,7 +85,7 @@ def view(request: Request):
 
 @app.post('/create-order')
 async def create_order(request: Request):
-    create_table_insert_items()
+
     create_tables()
     with UseDatabase(config) as cursor:
         form_data = await request.form()

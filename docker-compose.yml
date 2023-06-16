@@ -4,8 +4,8 @@ networks:
   oil_network:
 services:
   db:
-    image: mysql:latest
-    container_name: mysql_DB
+    image: mysql2:latest
+    container_name: mysql_DB2
     environment:
       MYSQL_DATABASE: 'oilordersDB'
       MYSQL_USER: 'oilorder_admin'

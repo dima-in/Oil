@@ -1,5 +1,5 @@
 import mysql.connector
-
+import os
 
 class ConnectionError(Exception):
     """
@@ -26,13 +26,33 @@ class SQLError(Exception):
 
 
 config = {
-    'host': 'mysql_DB',
-    #'host': '127.0.0.1',
+    #'host': 'mysql_DB2',
+    'host': '127.0.0.1',
     'user': 'oilorder_admin',
     'password': 'oilpasswd',
     'database': 'oilordersDB',
     'charset': 'utf8'
 }
+
+
+#config = {
+#   'host': os.environ.get('HOST_NAME'),  # Использование переменной окружения
+#   'user': 'oilorder_admin',
+#   'password': 'oilpasswd',
+#   'database': 'oilordersDB',
+#   'charset': 'utf8'
+#}
+
+# Или используйте другой механизм для определения имени хоста
+# host = get_host_name()
+
+# config = {
+#     'host': host,
+#     'user': 'oilorder_admin',
+#     'password': 'oilpasswd',
+#     'database': 'oilordersDB',
+#     'charset': 'utf8'
+# }
 
 
 class UseDatabase:

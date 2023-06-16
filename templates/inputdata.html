@@ -6,59 +6,80 @@
 </head>
 <body>
     <form method="post" action="/create-order">
-        <div class="customer-details">
-            <div class="customer-info">
-                <label for="name">Имя:</label>
-                <input type="text" name="name" id="name" required><br>
 
-                <label for="surname">Фамилия:</label>
-                <input type="text" name="surname" id="surname" required><br>
-
-                <label for="phone">Телефон:</label>
-                <input type="tel" name="phone" id="phone" required><br>
-
-                <label for="address">Адрес:</label>
-                <input type="text" name="address" id="address" required><br>
-
-                <label for="status">Статус заказа:</label>
-                    <select name="status" id="status" required>
-                        <option value="0">новый</option>
-                        <option value="1">получена предоплата</option>
-                        <option value="2">завершен</option>
-                        <option value="3">готов к выдаче</option>
-                        <option value="4">отменен</option>
-                        <option value="5">ожидает предоплаты</option>
-                    </select><br>
-
-                <label for="shipping_date">Дата доставки:</label>
-                <input type="date" name="shipping_date" id="shipping_date" required><br>
-            </div>
-            <div class="order-info">
+        <div class="order-info">
                 <h2>Выбранные продукты</h2>
                 <div id="products-list"></div>
                 <h2>Стоимость заказа</h2>
-                <div id="total-price"></div>
-            </div>
-            <div class="create-button">
-                <input type="submit" value="Создать заказ">
-            </div>
+                <div id="total-price"></div><br>
+        
+            <div class="customer-details">
+                <div class="customer-details-header" onclick="toggleCustomerDetails()">
+                    Сохранить заказ
+                    <span class="arrow">&#9660;</span>
+                </div>
+                <div class="customer-details-content">
+                    <div class="customer-info">
+                        <label for="name">Имя:</label>
+                        <input type="text" name="name" id="name" required><br>
 
-           <div class="view-button">
-                <a href="/view-orders" class="navigate-button">Посмотреть заказы</a>
+                        <label for="surname">Фамилия:</label>
+                        <input type="text" name="surname" id="surname" required><br>
+
+                        <label for="phone">Телефон:</label>
+                        <input type="tel" name="phone" id="phone" required><br>
+
+                        <label for="address">Адрес:</label>
+                        <input type="text" name="address" id="address" required><br>
+
+                        <label for="status">Статус заказа:</label>
+                            <select name="status" id="status" required>
+                                <option value="0">новый</option>
+                                <option value="1">получена предоплата</option>
+                                <option value="2">завершен</option>
+                                <option value="3">готов к выдаче</option>
+                                <option value="4">отменен</option>
+                                <option value="5">ожидает предоплаты</option>
+                            </select><br>
+
+                        <label for="shipping_date">Дата доставки:</label>
+                        <input type="date" name="shipping_date" id="shipping_date" required><br>
+
+                        <div class="create-button">
+                            <input type="submit" value="Создать заказ">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+        <script>
+            function toggleCustomerDetails() {
+            const customerDetails = document.querySelector('.customer-details');
+            customerDetails.classList.toggle('open');
+            }
+        </script>
+
+        <div class="order-and-buttons">
+           <div class="view-button">
+                <a href="/view-orders" class="navigate-button">Посмотреть заказы</a>
+           </div>
+        </div>
+
 
         {% if oil_catalog %}
-            <div class="product-wrap">
-                {% for oil_name, volume, price in oil_catalog %}
-                    <div class="product-card" >
+        <div class="product-wrap">
+            {% for oil_name, volume, price in oil_catalog %}
+                <div class="product-card">
+                    <div class="product-image" style="background-image: url('/static/images/{{ oil_name }}.jpg')"></div>
+                    <div class="product-info">
                         <label for="{{ oil_name }}_{{ volume }}">{{ oil_name }} {{ volume }}мл - {{ price }} руб/л</label>
                         <input type="number" name="{{ oil_name }}_{{ volume }}" id="{{ oil_name }}_{{ volume }}" value="0" min="0" class="product-quantity">
                         <input type="hidden" name="oil_name_{{ oil_name }}_volume_{{ volume }}_price" value="{{ price }}">
                     </div>
-                {% endfor %}
-            </div>
-        {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
 
             <script>
                 const productsList = document.getElementById('products-list');

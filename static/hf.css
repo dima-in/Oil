@@ -5,31 +5,110 @@ select {
 .status {
   height: auto;
 }
+/******************* карточка товара *************************/
 
-.product-wrap{
-    display: flex; flex-wrap: wrap;
+.product-wrap {
+    display: flex;
+    flex-wrap: wrap;
 }
 
-.product-card{
-    flex: 1 1 200px;
+.product-card {
+    width: 250px;
     margin: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 10px;
+    box-sizing: border-box;
 }
+
+.product-image {
+    width: 150px;
+    height: 150px;
+    background-size: cover;
+    background-position: center;
+    margin-bottom: 10px;
+}
+
+.product-info {
+    text-align: center;
+}
+
+.product-info label {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.product-info input {
+    width: 50px;
+    margin-top: 10px;
+}
+
+.product-info input[type="number"]::-webkit-inner-spin-button,
+.product-info input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.product-info input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+/********************************************/
 
 .order-info {
-  margin: 20px;
-}
+        position: sticky;
+        top: 0;
+        padding: 10px;
+        z-index: 1;
+        background-color: #5f879f;
+
+    }
 
 .order-info h2 {
-  margin-top: 0;
-}
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    }
+total-price {
+    margin 5%;
+    }
+
+/*********************детали кастомера***********************/
 
 .customer-details {
-  display: flex;
+  position: relative;
+  margin-bottom: 20px;
 }
 
-.customer-details label {
+.customer-details .customer-details-header {
+  cursor: pointer;
+  background-color: #f0f0f0;
+  padding: 10px;
+  width: 30%;
+}
+
+.customer-details .arrow {
+  float: right;
+  transition: transform 0.3s;
+}
+
+.customer-details .customer-details-content {
+  display: none;
+  background-color: #ffffff;
+  padding: 10px;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 30%;
+  z-index: 1;
+}
+
+.customer-details.open .arrow {
+  transform: rotate(180deg);
+}
+
+.customer-details.open .customer-details-content {
   display: block;
-  margin-bottom: 10px;
 }
 
 .customer-details input[type="text"],
@@ -52,6 +131,16 @@ select {
   cursor: pointer;
 }
 
+.customer-info label,
+        .customer-info input,
+        .customer-info select {
+            display: inline-block;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+/********************************************/
+
 .product-quantity {
   width: 100%;
   padding: 5px;
@@ -61,24 +150,12 @@ select {
   box-sizing: border-box;
 }
 
-.order-info {
-  position: relative;
-  #margin: 20px;
-  #border: 1px solid #ccc;
-  padding: 10px;
-}
 
-.order-info h2 {
-  font-size: 20px;
-  font-weight: bold;
+products-list {
   margin-bottom: 10px;
 }
 
-#products-list {
-  margin-bottom: 10px;
-}
-
-#total-price {
+total-price {
   font-size: 24px;
   font-weight: bold;
 }
@@ -150,9 +227,9 @@ input[type=text] {
   width:            30em;
 }
 create-button {
-  flex: 1;
-  text-align: right;
-  font-size:        125%;
+        flex: 1;
+        text-align: right;
+        font-size:        125%;
 }
 
 .navigate-button {

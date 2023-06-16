@@ -3,6 +3,6 @@
 с изменениями(проверить DB_HOST)
 3) docker-compose -p 8000 up --build проверить, остановить контейнеры
 4) docker push <image_name>:<tag> загрузить обновленный образ на Docker-hub:
-5) docker pull dimain0101010/8000_web загрузить обновленный образ на сервер
+5) docker pull dimain0101010/8001_web загрузить обновленный образ на сервер
 6) docker-compose up --build поднять контейнеры на сервере
 7) docker rmi --force <ID>  Удалить лишние образы из компьютера

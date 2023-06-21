@@ -1,8 +1,10 @@
-1) Остановить и удалить контейнеры
+1) Остановить и удалить контейнеры docker-compose down
 2) docker build -t dimain0101010/8000_web . смонтировать контейнер
 с изменениями(проверить DB_HOST)
 3) docker-compose -p 8000 up --build проверить, остановить контейнеры
 4) docker push <image_name>:<tag> загрузить обновленный образ на Docker-hub:
+(docker push dimain0101010/8001_web для host': 'mysql_DB2' и
+docker push dimain0101010/8000_web для host': 'mysql_DB'
 5) docker pull dimain0101010/8001_web загрузить обновленный образ на сервер
 6) docker-compose up --build поднять контейнеры на сервере
 7) docker rmi --force <ID>  Удалить лишние образы из компьютера

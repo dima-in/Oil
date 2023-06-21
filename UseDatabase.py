@@ -1,5 +1,6 @@
 import mysql.connector
-import os
+import socket
+
 
 class ConnectionError(Exception):
     """
@@ -25,35 +26,16 @@ class SQLError(Exception):
     pass
 
 
+HOST_NAME = socket.gethostname()
+print(f'HOST_NAME = {HOST_NAME}')
+
 config = {
-    #'host': 'mysql_DB2',
-    'host': '127.0.0.1',
+    'host': '127.0.0.1' if HOST_NAME == 'DESKTOP-E6O7AMM' else 'mysql_DB2',
     'user': 'oilorder_admin',
     'password': 'oilpasswd',
     'database': 'oilordersDB',
     'charset': 'utf8'
 }
-
-
-#config = {
-#   'host': os.environ.get('HOST_NAME'),  # Использование переменной окружения
-#   'user': 'oilorder_admin',
-#   'password': 'oilpasswd',
-#   'database': 'oilordersDB',
-#   'charset': 'utf8'
-#}
-
-# Или используйте другой механизм для определения имени хоста
-# host = get_host_name()
-
-# config = {
-#     'host': host,
-#     'user': 'oilorder_admin',
-#     'password': 'oilpasswd',
-#     'database': 'oilordersDB',
-#     'charset': 'utf8'
-# }
-
 
 class UseDatabase:
 

@@ -29,7 +29,7 @@ def add_price_row():
 def get_oil_catalog() -> list:
     """
 
-    :rtype: object
+    :rtype: list
     """
     with UseDatabase(config) as cursor:
         _SQL_select_oil_prices = """SELECT oil_name, volume, price FROM price_list WHERE price > 0"""

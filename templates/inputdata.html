@@ -65,22 +65,26 @@
            </div>
         </div>
 
-
         {% if oil_catalog %}
-        <div class="product-wrap">
-            {% for oil_name, volume, price in oil_catalog %}
+            <div class="product-wrap">
+                {% set grouped_oil_catalog = oil_catalog|groupby('0') %}
+                {% for oil_name, group in grouped_oil_catalog %}
                 <div class="product-card">
                     <div class="product-image" style="background-image: url('/static/images/{{ oil_name }}.jpg')"></div>
                     <div class="product-info">
-                        <label for="{{ oil_name }}_{{ volume }}">{{ oil_name }} {{ volume }}мл - {{ price }} руб/л</label>
-                        <input type="number" name="{{ oil_name }}_{{ volume }}" id="{{ oil_name }}_{{ volume }}" value="0" min="0" class="product-quantity">
-                        <input type="hidden" name="oil_name_{{ oil_name }}_volume_{{ volume }}_price" value="{{ price }}">
+                        <h3>{{ oil_name }}</h3>
+                        {% for oil_name, volume, price in group %}
+                        <div class="product-item">
+                            <label for="{{ oil_name }}_{{ volume }}">{{ volume }}мл - {{ price }} руб/л</label>
+                            <input type="number" name="{{ oil_name }}_{{ volume }}" id="{{ oil_name }}_{{ volume }}" value="0" min="0" class="product-quantity">
+                            <input type="hidden" name="oil_name_{{ oil_name }}_volume_{{ volume }}_price" value="{{ price }}">
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
-            {% endfor %}
-        </div>
-    {% endif %}
-
+                {% endfor %}
+            </div>
+        {% endif %}
             <script>
                 const productsList = document.getElementById('products-list');
                 const totalPrice = document.getElementById('total-price');

@@ -17,18 +17,17 @@ def add_price_row():
         oil_dict = price_table_to_dict()  # TODO закончить функцию
         for name, prices in oil_dict.items():
             for volume, price in prices:
-
                 if price or volume or price == '':
                     print(f'name, volume, price {name, volume.strip(" л"), price}')
                 # Вставка данных в таблицу
-                sql = "INSERT INTO price_list (oil_name, volume, price) VALUES (%s, %s, %s)"
+                sql = """INSERT INTO price_list (oil_name, volume, price) SELECT %s, %s, %s
+                FROM DUAL
+                WHERE NOT EXISTS (SELECT 1 FROM price_list LIMIT 1)"""
                 val = (name, volume, int(price))
                 cursor.execute(sql, val)
 
-
 def get_oil_catalog() -> list:
     """
-
     :rtype: list
     """
     with UseDatabase(config) as cursor:

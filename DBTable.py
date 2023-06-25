@@ -1,19 +1,37 @@
 from UseDatabase import UseDatabase, config
 
+
 def create_oil_statuses():
     with UseDatabase(config) as cursor:
-
         cursor.execute("""CREATE TABLE IF NOT EXISTS order_statuses (
                         id INT PRIMARY KEY,
                         name VARCHAR(50) NOT NULL
                         )""")
 
-        cursor.execute("""INSERT INTO order_statuses VALUES (0, 'новый')""")
-        cursor.execute("""INSERT INTO order_statuses VALUES (1, 'получена предоплата')""")
-        cursor.execute("""INSERT INTO order_statuses VALUES (2, 'готов к выдаче')""")
-        cursor.execute("""INSERT INTO order_statuses VALUES (3, 'завершен')""")
-        cursor.execute("""INSERT INTO order_statuses VALUES (4, 'отменен')""")
-        cursor.execute("""INSERT INTO order_statuses VALUES (5, 'ожидает предоплаты')""")
+
+        cursor.execute("SELECT COUNT(*) FROM order_statuses")
+        result = cursor.fetchone()
+        count = result[0]
+
+        # Если таблица пуста, выполняем вставку записей
+        if count == 0:
+            cursor.execute("""INSERT INTO order_statuses (id, name)
+                VALUES (0, 'новый')""")
+            cursor.execute("""INSERT INTO order_statuses (id, name)
+                VALUES (1, 'получена предоплата')""")
+            cursor.execute("""INSERT INTO order_statuses (id, name)
+                VALUES (2, 'Avito доставка')""")
+            cursor.execute("""INSERT INTO order_statuses (id, name)
+                VALUES (3, 'Ozon')""")
+            cursor.execute("""INSERT INTO order_statuses (id, name)
+                VALUES (4, 'завершен')""")
+            cursor.execute("""INSERT INTO order_statuses (id, name)
+                VALUES (5, 'готов к выдаче')""")
+            cursor.execute("""INSERT INTO order_statuses (id, name)
+                VALUES (6, 'отменен')""")
+            cursor.execute("""INSERT INTO order_statuses (id, name)
+                VALUES (7, 'ожидает предоплаты')""")
+
 
 def create_tables():
     with UseDatabase(config) as cursor:
@@ -26,8 +44,6 @@ def create_tables():
                           address VARCHAR(20) NOT NULL
                           )""")
 
-
-
         cursor.execute("""CREATE TABLE IF NOT EXISTS statuses_list (
                                         id INT PRIMARY KEY AUTO_INCREMENT,
                                         order_id INT NOT NULL,
@@ -35,7 +51,6 @@ def create_tables():
                                         name VARCHAR(50) NOT NULL,
                                         datetime DATETIME
                                         )""")
-
 
         # Создание таблицы orders (если она не существует)
         cursor.execute("""CREATE TABLE IF NOT EXISTS orders (
@@ -59,5 +74,3 @@ def create_tables():
                           price FLOAT NOT NULL,
                           FOREIGN KEY (order_id) REFERENCES orders(id)
                           )""")
-
-

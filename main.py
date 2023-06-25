@@ -18,58 +18,6 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory='templates')
 
-# создает таблицы, необходимые перед вызовом view(request: Request)
-@app.get('/create-table-try-except-method', response_class=HTMLResponse)
-def create_table_try_except_method():
-    with UseDatabase(config) as cursor:
-        try:
-            # попытаться выполнить запрос для получения данных из таблицы oil-statuses
-            cursor.execute('SELECT * FROM oil_statuses')
-        except:
-            # таблица oil-statuses не существует, вызываем функцию create_table_insert_items()
-
-            create_oil_statuses()
-
-        try:
-            # попытаться выполнить запрос для получения данных из таблицы catalog
-            cursor.execute('SELECT * FROM catalog')
-        except:
-            # таблица catalog не существует, вызываем функцию create_table_insert_items()
-            create_catalog_table()
-            add_price_row()
-
-# создает таблицы, необходимые перед вызовом view(request: Request)
-@app.get('/create-oil-statuses-catalog-table', response_class=HTMLResponse)
-def create_table_insert_items():
-    with UseDatabase(config) as cursor:
-
-            # попытаться выполнить запрос для получения данных из таблицы oil-statuses
-        if cursor.execute('SELECT * FROM oil_statuses'):
-            print('table oil_statuses exist')
-            # таблица oil-statuses не существует, вызываем функцию create_table_insert_items()
-        else:
-            print('table oil_statuses doesn"t exist')
-            create_oil_statuses()
-
-
-            # попытаться выполнить запрос для получения данных из таблицы catalog
-        if cursor.execute('SELECT * FROM catalog'):
-            print('table catalog exist')
-            # таблица catalog не существует, вызываем функцию create_table_insert_items()
-        else:
-            print('table catalog doesn"t exist')
-            create_catalog_table()
-            add_price_row()
-
-# создает таблицы, необходимые перед вызовом view(request: Request)
-@app.get('/create-first', response_class=HTMLResponse)
-def create_table_insert_items():
-    with UseDatabase(config) as cursor:
-
-            create_oil_statuses()
-            create_catalog_table()
-            add_price_row()
-
 
 
 @app.get('/', response_class=HTMLResponse)
@@ -87,6 +35,9 @@ def view(request: Request):
 async def create_order(request: Request):
 
     create_tables()
+    create_oil_statuses()
+    create_catalog_table()
+    add_price_row()
     with UseDatabase(config) as cursor:
         form_data = await request.form()
 

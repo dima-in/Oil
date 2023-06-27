@@ -6,18 +6,17 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.staticfiles import StaticFiles
 
-from Catalog import get_oil_catalog, create_catalog_table, add_price_row
+from Catalog import add_price_data_to_table
 from Customer import Customer
-from DBTable import create_tables, create_oil_statuses
+from Database import create_tables, insert_statuses_to_database, save_status, \
+    get_status_name, save_order_details, save_order, save_customer, get_customer_by_phone, select_all_orders
+from Catalog import get_oil_catalog
 from OilOrder import OilOrder
 from OrderItem import OrderItem
-from UseDatabase import UseDatabase
-from UseDatabase import config
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory='templates')
-
 
 
 @app.get('/', response_class=HTMLResponse)
@@ -34,75 +33,55 @@ def view(request: Request):
 @app.post('/create-order')
 async def create_order(request: Request):
 
-    create_tables()
-    create_oil_statuses()
-    create_catalog_table()
-    add_price_row()
-    with UseDatabase(config) as cursor:
-        form_data = await request.form()
+    await create_tables()
+    await insert_statuses_to_database()
+    await add_price_data_to_table()
+    form_data = await request.form()
 
-        date = datetime.now()
-        name = form_data.get('name')
-        surname = form_data.get('surname')
-        phone = form_data.get('phone')
-        address = form_data.get('address')
-        status = int(form_data.get('status'))
-        products = form_data.get('selected_products')
-        print(f'products =  {products}')
-        shipping_date = datetime.strptime(form_data.get('shipping_date'), '%Y-%m-%d')  # парсим дату доставки из формы
+    date = datetime.now()
+    name = form_data.get('name')
+    surname = form_data.get('surname')
+    phone = form_data.get('phone')
+    address = form_data.get('address')
+    status = int(form_data.get('status'))
+    products = form_data.get('selected_products')
+    shipping_date = datetime.strptime(form_data.get('shipping_date'), '%Y-%m-%d')  # парсим дату доставки из формы
 
-        """запрос в БД осуществляет поикс клиента по номеру телефона """
-        _SQL_select_customer = """ SELECT id, name, surname, phone FROM customers 
-                        WHERE phone=%s"""
-        cursor.execute(_SQL_select_customer, (phone,))
-        existing_customer = cursor.fetchone()  # получаем следующую строку из запроса
+    """запрос в БД осуществляет поикс клиента по номеру телефона """
+    existing_customer = await get_customer_by_phone(phone)
 
-        """если по указанному номеру клиент  не найден, создать нового клиента"""
-        if existing_customer is None:
-            _SQL_create_customer = """INSERT INTO customers (name, surname, phone, address)
-                    VALUES (%s, %s, %s, %s)"""
-            cursor.execute(_SQL_create_customer, (name, surname, phone, address))
-            customer_id = cursor.lastrowid  # получаем ID нового клиента
-        else:
-            customer_id = existing_customer[0]  # получаем ID существующего клиента
+    """если по указанному номеру клиент  не найден, создать нового клиента"""
+    if existing_customer is None:
+        customer_id = await save_customer(address, name, phone, surname)
+    else:
+        customer_id = existing_customer[0]  # получаем ID существующего клиента
 
-        """создание экземпляра клиента customer для передачи в экземпляр заказа order"""
-        customer = Customer(id=customer_id, name=name, surname=surname, phone=phone, address=address)
-        """создание экземпляр заказа"""
-        order = OilOrder(customer, data=date, shipping_date=shipping_date)
+    """создание экземпляра клиента customer для передачи в экземпляр заказа order"""
+    customer = Customer(id=customer_id, name=name, surname=surname, phone=phone, address=address)
+    """создание экземпляр заказа"""
+    order = OilOrder(customer, data=date, shipping_date=shipping_date)
 
-        """извлечение заказа из формы products = form_data.get('select_products'),
-        создание экземпляра продукта product и добавление в список деталей заказа
-        """
+    """извлечение заказа из формы products = form_data.get('select_products'),
+    создание экземпляра продукта product и добавление в список деталей заказа
+    """
 
-        for product in products.split(','):  # получаем детали заказа из формы
-            oil_name, volume, price, count = product.split('_')
-            product = OrderItem(oil_name=oil_name, volume=int(volume.replace('мл', '')),
-                                count=int(count.replace('x ', '')), price=float(price.replace('руб', '')))
-            order.add_bottle(product)
+    for product in products.split(','):  # получаем детали заказа из формы
+        oil_name, volume, price, count = product.split('_')
+        product = OrderItem(oil_name=oil_name, volume=int(volume.replace('мл', '')),
+                            count=int(count.replace('x ', '')), price=float(price.replace('руб', '')))
+        order.add_bottle(product)
 
-        """сохранение заказа в БД"""
-        _SQL_save_order = """INSERT INTO orders (customer_id, date, shipping_date, total_price, status) 
-                                    VALUES (%s, %s, %s, %s, %s)"""
-        cursor.execute(_SQL_save_order, (customer_id, date, shipping_date, order.calculate_total_price(), status))
-        order_id = cursor.lastrowid  # получаем ID заказа
+    """сохранение заказа в БД"""
+    order_id = await save_order(customer_id, date, order, shipping_date, status)
 
-        """сохранение деталей заказа"""
-        for product in order.order_details:
-            _SQL_save_order_details = """INSERT INTO order_details (order_id, oil_name, volume, count, price)
-            VALUES (%s, %s, %s, %s, %s)"""
-            cursor.execute(_SQL_save_order_details,
-                           (order_id, product.oil_name, product.volume, product.count, product.price))
+    """сохранение деталей заказа"""
+    for product in order.order_details:
+        await save_order_details(order_id, product)
 
-        """запись текущего статуса"""
-        _SQL_insert_statuses_list = """INSERT INTO statuses_list (order_id, order_status, name) 
-        VALUES (%s, %s, %s)"""
+    status_name = await get_status_name(status)
+    """запись текущего статуса"""
+    await save_status(order_id, status, status_name)
 
-
-        _SQL_select_status_name = """SELECT name FROM order_statuses WHERE id = %s"""
-        cursor.execute(_SQL_select_status_name, (status,))
-        status_name = cursor.fetchone()[0]
-        cursor.execute(_SQL_insert_statuses_list, (order_id, status, status_name))
     oil_catalog = get_oil_catalog()  # TODO! DRY!!
     context = {"request": request, 'title': "Начальная страница", 'oil_catalog': oil_catalog}
     return templates.TemplateResponse('inputdata.html', context)
@@ -110,17 +89,9 @@ async def create_order(request: Request):
 
 @app.get('/view-orders')
 def show_orders(request: Request):
-    with UseDatabase(config) as cursor:
-
-        _SQL_select_all = """SELECT * FROM orders 
-                            JOIN customers ON orders.customer_id = customers.id
-                            JOIN order_details ON orders.id = order_details.order_id
-                            JOIN statuses_list ON orders.id = statuses_list.order_id;
-                            """
-        cursor.execute(_SQL_select_all)
-        order = cursor.fetchall()
-        context = {'request': request, 'title': "Начальная страница", 'order': order}
-        return templates.TemplateResponse('vieworder.html', context)
+    order = select_all_orders()
+    context = {'request': request, 'title': "Начальная страница", 'order': order}
+    return templates.TemplateResponse('vieworder.html', context)
 
 
 # **********************************************************************************************

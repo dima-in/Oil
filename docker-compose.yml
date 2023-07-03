@@ -4,7 +4,7 @@ networks:
   oil_network:
 services:
   db:
-    image: mysql2:latest
+    image: mysql:latest
     container_name: mysql_DB2
     environment:
       MYSQL_DATABASE: 'oilordersDB'
@@ -34,7 +34,9 @@ services:
       DB_USER: 'oilorder_admin'
       DB_PASSWORD: 'oilpasswd'
       DB_NAME: 'oilordersDB'
+      PYTHONIOENCODING: 'utf-8'  # Настройка кодировки
 
     networks:
       - oil_network
+
     restart: always

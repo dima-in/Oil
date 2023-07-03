@@ -6,27 +6,27 @@ async def create_tables():
     with UseDatabase(config) as cursor:
         # Создание таблицы customers (если она не существует)
         cursor.execute("""CREATE TABLE IF NOT EXISTS customers (
-                          id INT PRIMARY KEY AUTO_INCREMENT,
-                          name VARCHAR(50) NOT NULL,
-                          surname VARCHAR(50) NOT NULL,
-                          phone VARCHAR(20) NOT NULL,
-                          address VARCHAR(100) NOT NULL
-                          )""")
+                            id INT PRIMARY KEY AUTO_INCREMENT,
+                            name VARCHAR(50) NOT NULL,
+                            surname VARCHAR(50) NOT NULL,
+                            phone VARCHAR(20) NOT NULL,
+                            address VARCHAR(100) NOT NULL
+                            )""")
 
         cursor.execute("""CREATE TABLE IF NOT EXISTS price_list
-                                (id INT PRIMARY KEY AUTO_INCREMENT,
-                                oil_name VARCHAR(100) NOT NULL,
-                                volume INT NOT NULL,
-                                price FLOAT NOT NULL
-                                )""")
+                            (id INT PRIMARY KEY AUTO_INCREMENT,
+                            oil_name VARCHAR(100) NOT NULL,
+                            volume INT NOT NULL,
+                            price FLOAT NOT NULL
+                            )""")
 
         cursor.execute("""CREATE TABLE IF NOT EXISTS statuses_list (
-                                        id INT PRIMARY KEY AUTO_INCREMENT,
-                                        order_id INT NOT NULL,
-                                        order_status INT NOT NULL,
-                                        name VARCHAR(50) NOT NULL,
-                                        datetime DATETIME
-                                        )""")
+                            id INT PRIMARY KEY AUTO_INCREMENT,
+                            order_id INT NOT NULL,
+                            order_status INT NOT NULL,
+                            name VARCHAR(50) NOT NULL,
+                            datetime DATETIME
+                            )""")
 
         # Создание таблицы orders (если она не существует)
         cursor.execute("""CREATE TABLE IF NOT EXISTS orders (

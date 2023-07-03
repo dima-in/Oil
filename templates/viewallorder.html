@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block body %}
+
+
+  <body>
+    <h1>Список заказов</h1>
+    <div class="to-create-button">
+        <a href="/entry" class="navigate-button">К созданию заказа</a>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>prev_order_id</th>
+          <th>ID заказа</th>
+          <th>Имя клиента</th>
+          <th>Фамилия клиента</th>
+          <th>Телефон клиента</th>
+          <th>Адрес клиента</th>
+          <th>Дата создания</th>
+          <th>Дата отгрузки</th>
+          <th>Масло</th>
+          <th>Объем (мл)</th>
+          <th>Количество (шт)</th>
+          <th>Цена (за шт)</th>
+          <th>Статус заказа</th>
+          <th>Общая стоимость заказа</th>
+        </tr>
+      </thead>
+      <tbody>
+            {% set prev_order_id = ' ' %}
+            {% for row in order %}
+                {% if prev_order_id  !=  row[0] %}
+                        {% set prev_order_id = row[0] %}
+
+                    <tr>
+                        <td>{{ prev_order_id }}</td>
+                        <td>{{ row[0] }}</td>
+                        <td>{{ row[7] }}</td>
+                        <td>{{ row[8] }}</td>
+                        <td>{{ row[9] }}</td>
+                        <td>{{ row[10] }}</td>
+                        <td>{{ row[2] }}</td>
+                        <td>{{ row[3] }}</td>
+                        <td>{{ row[13] }}</td>
+                        <td>{{ row[14] }}</td>
+                        <td>{{ row[15] }}</td>
+                        <td>{{ row[16] }}</td>
+                        <td>{{ row[20] }}</td>
+                        <td>{{ row[4] }}</td>
+                    </tr>
+              {% else %}
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>{{ row[13] }}</td>
+                        <td>{{ row[14] }}</td>
+                        <td>{{ row[15] }}</td>
+                        <td>{{ row[16] }}</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                {% endif %}
+            {% endfor %}
+      </tbody>
+    </table>
+  </body>
+
+
+
+{% endblock %}

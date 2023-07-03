@@ -1,22 +1,25 @@
+import secrets
 from datetime import datetime
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi import Request
 from fastapi.responses import HTMLResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
 from starlette.staticfiles import StaticFiles
 
 from Catalog import add_price_data_to_table
+from Catalog import get_oil_catalog
 from Customer import Customer
 from Database import create_tables, insert_statuses_to_database, save_status, \
     get_status_name, save_order_details, save_order, save_customer, get_customer_by_phone, select_all_orders
-from Catalog import get_oil_catalog
 from OilOrder import OilOrder
 from OrderItem import OrderItem
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory='templates')
+security = HTTPBasic()
 
 
 @app.get('/', response_class=HTMLResponse)
@@ -30,9 +33,25 @@ def view(request: Request):
     return templates.TemplateResponse('inputdata.html', context)
 
 
-@app.post('/create-order')
-async def create_order(request: Request):
+def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
+    correct_username = "admin"
+    correct_password = "admin"
 
+    is_correct_username = secrets.compare_digest(credentials.username, correct_username)
+    is_correct_password = secrets.compare_digest(credentials.password, correct_password)
+
+    if not (is_correct_username and is_correct_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    return credentials.username
+
+
+@app.post('/create-order')
+async def create_order(request: Request, current_username: str = Depends(get_current_username)):
     await create_tables()
     await insert_statuses_to_database()
     await add_price_data_to_table()
@@ -77,7 +96,7 @@ async def create_order(request: Request):
     """сохранение деталей заказа"""
     for product in order.order_details:
         await save_order_details(order_id, product)
-
+    """получение имени статуса """
     status_name = await get_status_name(status)
     """запись текущего статуса"""
     await save_status(order_id, status, status_name)
@@ -85,6 +104,20 @@ async def create_order(request: Request):
     oil_catalog = get_oil_catalog()  # TODO! DRY!!
     context = {"request": request, 'title': "Начальная страница", 'oil_catalog': oil_catalog}
     return templates.TemplateResponse('inputdata.html', context)
+
+
+@app.get("/users/me")
+def read_current_user(username: str = Depends(get_current_username)):
+    return {"username": username}
+
+
+@app.get('/view-all-orders')
+async def show_orders(request: Request, current_username: str = Depends(get_current_username)):
+    print("Request body:", await request.body())
+
+    order = select_all_orders()
+    context = {'request': request, 'title': "Начальная страница", 'order': order}
+    return templates.TemplateResponse('viewallorder.html', context)
 
 
 @app.get('/view-orders')

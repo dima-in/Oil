@@ -11,7 +11,6 @@
     <table>
       <thead>
         <tr>
-          <th>prev_order_id</th>
           <th>ID заказа</th>
           <th>Имя клиента</th>
           <th>Фамилия клиента</th>
@@ -28,13 +27,8 @@
         </tr>
       </thead>
       <tbody>
-            {% set prev_order_id = ' ' %}
             {% for row in order %}
-                {% if prev_order_id  !=  row[0] %}
-                        {% set prev_order_id = row[0] %}
-
                     <tr>
-                        <td>{{ prev_order_id }}</td>
                         <td>{{ row[0] }}</td>
                         <td>{{ row[7] }}</td>
                         <td>{{ row[8] }}</td>
@@ -48,24 +42,13 @@
                         <td>{{ row[16] }}</td>
                         <td>{{ row[20] }}</td>
                         <td>{{ row[4] }}</td>
+                        <td>
+                            <form action="/delete-order" method="post">
+                                <input type="hidden" name="id_to_delete" value="{{ row[0] }}">
+                                <button type="submit">Удалить</button>
+                            </form>
+                        </td>
                     </tr>
-              {% else %}
-                    <tr>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td>{{ row[13] }}</td>
-                        <td>{{ row[14] }}</td>
-                        <td>{{ row[15] }}</td>
-                        <td>{{ row[16] }}</td>
-                        <td></td>
-                        <td></td>
-                    </tr>
-                {% endif %}
             {% endfor %}
       </tbody>
     </table>

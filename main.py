@@ -6,15 +6,18 @@ from fastapi import Request
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
+from starlette.responses import RedirectResponse
 from starlette.staticfiles import StaticFiles
 
 from Catalog import add_price_data_to_table
 from Catalog import get_oil_catalog
 from Customer import Customer
 from Database import create_tables, insert_statuses_to_database, save_status, \
-    get_status_name, save_order_details, save_order, save_customer, get_customer_by_phone, select_all_orders
+    get_status_name, save_order_details, save_order, save_customer, get_customer_by_phone, select_all_orders, \
+    is_id_exist
 from OilOrder import OilOrder
 from OrderItem import OrderItem
+from Database import delete_order_dy_id
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -125,6 +128,17 @@ def show_orders(request: Request):
     order = select_all_orders()
     context = {'request': request, 'title': "Начальная страница", 'order': order}
     return templates.TemplateResponse('vieworder.html', context)
+
+
+@app.post('/delete-order')
+async def delite_order(request: Request):
+    form_data = await request.form()
+    order_id = int(form_data.get('id_to_delete'))
+    if is_id_exist(order_id):
+        delete_order_dy_id(order_id)
+    else:
+        print('Неверный order_id')
+    return RedirectResponse("/view-all-orders", status_code=303)
 
 
 # **********************************************************************************************

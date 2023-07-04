@@ -1,7 +1,6 @@
 from UseDatabase import UseDatabase, config
 
 
-
 async def create_tables():
     with UseDatabase(config) as cursor:
         # Создание таблицы customers (если она не существует)
@@ -152,3 +151,22 @@ def select_all_orders():
         cursor.execute(_SQL_select_all)
         order = cursor.fetchall()
         return order
+
+
+def delete_order_dy_id(order_id_to_delete):
+    with UseDatabase(config) as cursor:
+        _SQL_delete_from_order_details = """DELETE FROM order_details WHERE order_id = %s;"""
+        _SQL_delete_from_orders = """DELETE FROM orders WHERE id = %s;"""
+        cursor.execute(_SQL_delete_from_order_details, (order_id_to_delete, ))
+        cursor.execute(_SQL_delete_from_orders, (order_id_to_delete, ))
+
+
+def is_id_exist(order_id):
+    with UseDatabase(config) as cursor:
+        _SQL_select_id = """SELECT id FROM orders WHERE id = %s;"""
+        cursor.execute(_SQL_select_id, (order_id, ))
+        result = cursor.fetchone()
+        if result:
+            return True
+        else:
+            return False

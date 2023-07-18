@@ -12,9 +12,7 @@ from starlette.staticfiles import StaticFiles
 from Catalog import add_price_data_to_table
 from Catalog import get_oil_catalog
 from Customer import Customer
-from Database import create_tables, insert_statuses_to_database, save_status, \
-    get_status_name, save_order_details, save_order, save_customer, get_customer_by_phone, select_all_orders, \
-    is_id_exist
+from Database import create_tables, insert_statuses_to_database, save_status, get_status_name, save_order_details, save_order, save_customer, get_customer_by_phone, select_all_orders,  is_id_exist
 from OilOrder import OilOrder
 from OrderItem import OrderItem
 from Database import delete_order_dy_id
@@ -37,8 +35,8 @@ def view(request: Request):
 
 
 def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
-    correct_username = "admin"
-    correct_password = "admin"
+    correct_username = "oilpress"
+    correct_password = "MarshallJCM800"
 
     is_correct_username = secrets.compare_digest(credentials.username, correct_username)
     is_correct_password = secrets.compare_digest(credentials.password, correct_password)

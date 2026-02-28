@@ -85,9 +85,8 @@ async def insert_statuses_to_database():
 def insert_price_list_items(name, price, volume):
     with UseDatabase(config) as cursor:
         _SQL_insert_where_not_exists = """INSERT INTO price_list (oil_name, volume, price) SELECT %s, %s, %s
-                    FROM DUAL
-                    WHERE NOT EXISTS (SELECT 1 FROM price_list LIMIT 1)"""
-        val = (name, volume, int(price))
+                    WHERE NOT EXISTS (SELECT 1 FROM price_list WHERE oil_name=%s AND volume=%s)"""
+        val = (name, volume, int(price), name, volume)
         cursor.execute(_SQL_insert_where_not_exists, val)
 
 

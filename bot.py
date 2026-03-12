@@ -24,6 +24,7 @@ from Database import (
     save_customer, get_customer_by_phone, select_all_orders, 
     is_id_exist, delete_order_by_id
 )
+from AvitoParser import update_prices_from_avito
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -510,11 +511,35 @@ async def admin_panel(message: types.Message):
         keyboard=[
             [KeyboardButton(text="📊 Все заказы")],
             [KeyboardButton(text="❌ Удалить заказ")],
+            [KeyboardButton(text="💰 Обновить цены из Avito")],
             [KeyboardButton(text="🔙 Назад")],
         ],
         resize_keyboard=True
     )
     await message.answer("🔧 **Панель администратора**\n\nВыберите действие:", reply_markup=admin_keyboard, parse_mode="Markdown")
+
+
+@dp.message(lambda message: message.text == "💰 Обновить цены из Avito")
+async def update_prices_from_avito_handler(message: types.Message):
+    """Обработчик обновления цен из Avito."""
+    status_message = await message.answer("⏳ Начинаю обновление цен с Avito...")
+    
+    try:
+        updated_count = await update_prices_from_avito()
+        
+        if updated_count > 0:
+            await status_message.edit_text(
+                f"✅ Успешно обновлено цен: {updated_count}\n\n"
+                f"Цены актуализированы согласно данным с Avito."
+            )
+        else:
+            await status_message.edit_text(
+                "⚠️ Не удалось найти новые цены на Avito.\n\n"
+                "Возможно, товары не найдены или изменилась структура сайта."
+            )
+    except Exception as e:
+        await status_message.edit_text(f"❌ Ошибка при обновлении цен: {str(e)}")
+        print(f"Ошибка обновления цен: {e}")
 
 
 async def main():

@@ -29,7 +29,7 @@ services:
     depends_on:
       - db
     environment:
-      DB_HOST: mysql_DB
+      DB_HOST: db
       DB_PORT: 3306
       DB_USER: 'oilorder_admin'
       DB_PASSWORD: 'oilpasswd'
@@ -39,4 +39,21 @@ services:
     networks:
       - oil_network
 
+    restart: always
+
+  bot:
+    build: .
+    command: bash -c "python bot.py"
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: 'oilorder_admin'
+      DB_PASSWORD: 'oilpasswd'
+      DB_NAME: 'oilordersDB'
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-YOUR_BOT_TOKEN_HERE}
+      PYTHONIOENCODING: 'utf-8'
+    networks:
+      - oil_network
     restart: always

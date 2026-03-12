@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="./static/hf.css" />
+</head>
+<body>
+    <div class="admin-nav">
+        <a href="/" class="navigate-button">К заказам</a>
+        <a href="/view-all-orders" class="navigate-button">Все заказы</a>
+        <a href="/admin/pricelist" class="navigate-button">Прайс-лист</a>
+        <a href="/admin/upload-pricelist" class="navigate-button">Загрузить PDF</a>
+    </div>
+
+    <h1>{{ title }}</h1>
+
+    <!-- Форма добавления нового товара -->
+    <div class="admin-form">
+        <h2>Добавить товар</h2>
+        <form method="post" action="/admin/pricelist/add" class="inline-form">
+            <input type="text" name="oil_name" placeholder="Название масла" required>
+            <input type="number" name="volume" placeholder="Объём (мл)" required>
+            <input type="number" name="price" placeholder="Цена (руб/л)" step="0.01" required>
+            <button type="submit" class="action-button add-button">Добавить</button>
+        </form>
+    </div>
+
+    <!-- Таблица прайс-листа -->
+    <div class="pricelist-container">
+        <form method="post" action="/admin/pricelist/clear" class="clear-form">
+            <button type="submit" class="action-button clear-button" onclick="return confirm('Вы уверены?')">Очистить весь прайс-лист</button>
+        </form>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Название</th>
+                    <th>Объём (мл)</th>
+                    <th>Цена (руб/л)</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if prices %}
+                    {% for id, oil_name, volume, price in prices %}
+                    <tr>
+                        <td>{{ id }}</td>
+                        <td>{{ oil_name }}</td>
+                        <td>{{ volume }}</td>
+                        <td>
+                            <form method="post" action="/admin/pricelist/update" class="inline-form">
+                                <input type="hidden" name="price_id" value="{{ id }}">
+                                <input type="number" name="new_price" value="{{ price }}" step="0.01" min="0">
+                                <button type="submit" class="action-button update-button">OK</button>
+                            </form>
+                        </td>
+                        <td>
+                            <form method="post" action="/admin/pricelist/delete" class="inline-form">
+                                <input type="hidden" name="price_id" value="{{ id }}">
+                                <button type="submit" class="action-button delete-button" onclick="return confirm('Удалить этот товар?')">✕</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="5" style="text-align: center;">Прайс-лист пуст</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

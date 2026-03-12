@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="./static/hf.css" />
+</head>
+<body>
+    <div class="admin-nav">
+        <a href="/" class="navigate-button">К заказам</a>
+        <a href="/view-all-orders" class="navigate-button">Все заказы</a>
+        <a href="/admin/pricelist" class="navigate-button">Прайс-лист</a>
+        <a href="/admin/upload-pricelist" class="navigate-button">Загрузить PDF</a>
+    </div>
+
+    <h1>{{ title }}</h1>
+
+    {% if message %}
+        <div class="success-message">
+            <p>{{ message }}</p>
+            <a href="/admin/pricelist" class="navigate-button">Перейти к прайс-листу</a>
+        </div>
+    {% endif %}
+
+    {% if error %}
+        <div class="error-message">
+            <p>Ошибка: {{ error }}</p>
+        </div>
+    {% endif %}
+
+    <div class="upload-form-container">
+        <form method="post" action="/admin/upload-pricelist" enctype="multipart/form-data" class="upload-form">
+            <div class="form-group">
+                <label for="pdf_file">Выберите PDF файл прайс-листа:</label>
+                <input type="file" name="pdf_file" id="pdf_file" accept=".pdf,.csv">
+                <p class="help-text">Поддерживаемые форматы: PDF, CSV</p>
+            </div>
+            <button type="submit" class="action-button upload-button">Загрузить</button>
+        </form>
+
+        <div class="upload-info">
+            <h3>Инструкция:</h3>
+            <ol>
+                <li>Экспортируйте прайс-лист в формате PDF или CSV</li>
+                <li>Загрузите файл с помощью формы выше</li>
+                <li>Система автоматически обработает файл и обновит цены</li>
+            </ol>
+            <p class="warning">Внимание! Загрузка нового прайс-листа очистит текущие данные.</p>
+        </div>
+    </div>
+</body>
+</html>

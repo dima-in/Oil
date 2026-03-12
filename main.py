@@ -13,9 +13,11 @@ from Catalog import add_price_data_to_table
 from Catalog import get_oil_catalog
 from Customer import Customer
 from Database import create_tables, insert_statuses_to_database, save_status, get_status_name, save_order_details, save_order, save_customer, get_customer_by_phone, select_all_orders,  is_id_exist
+from Database import get_all_prices, update_price, delete_price, add_price_item, clear_price_list
 from OilOrder import OilOrder
 from OrderItem import OrderItem
 from Database import delete_order_dy_id
+from ExtractPDFPriceListTable import parse_price_list_pdf
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -137,6 +139,108 @@ async def delite_order(request: Request):
     else:
         print('Неверный order_id')
     return RedirectResponse("/view-all-orders", status_code=303)
+
+
+# **********************************************************************************************
+# ==================== Админ-панель: Управление прайс-листом ====================
+# **********************************************************************************************
+
+@app.get('/admin/pricelist')
+def admin_pricelist(request: Request, current_username: str = Depends(get_current_username)):
+    """Страница управления прайс-листом"""
+    prices = get_all_prices()
+    context = {
+        'request': request,
+        'title': "Управление прайс-листом",
+        'prices': prices
+    }
+    return templates.TemplateResponse('admin_pricelist.html', context)
+
+
+@app.post('/admin/pricelist/update')
+async def admin_update_price(request: Request, current_username: str = Depends(get_current_username)):
+    """Обновление цены товара"""
+    form_data = await request.form()
+    price_id = int(form_data.get('price_id'))
+    new_price = float(form_data.get('new_price'))
+    update_price(price_id, new_price)
+    return RedirectResponse("/admin/pricelist", status_code=303)
+
+
+@app.post('/admin/pricelist/delete')
+async def admin_delete_price(request: Request, current_username: str = Depends(get_current_username)):
+    """Удаление товара из прайс-листа"""
+    form_data = await request.form()
+    price_id = int(form_data.get('price_id'))
+    delete_price(price_id)
+    return RedirectResponse("/admin/pricelist", status_code=303)
+
+
+@app.post('/admin/pricelist/add')
+async def admin_add_price(request: Request, current_username: str = Depends(get_current_username)):
+    """Добавление нового товара в прайс-лист"""
+    form_data = await request.form()
+    oil_name = form_data.get('oil_name')
+    volume = int(form_data.get('volume'))
+    price = float(form_data.get('price'))
+    add_price_item(oil_name, volume, price)
+    return RedirectResponse("/admin/pricelist", status_code=303)
+
+
+@app.post('/admin/pricelist/clear')
+async def admin_clear_pricelist(request: Request, current_username: str = Depends(get_current_username)):
+    """Очистка всего прайс-листа"""
+    clear_price_list()
+    return RedirectResponse("/admin/pricelist", status_code=303)
+
+
+@app.get('/admin/upload-pricelist')
+def admin_upload_pricelist(request: Request, current_username: str = Depends(get_current_username)):
+    """Страница загрузки PDF прайс-листа"""
+    context = {
+        'request': request,
+        'title': "Загрузка прайс-листа"
+    }
+    return templates.TemplateResponse('admin_upload.html', context)
+
+
+@app.post('/admin/upload-pricelist')
+async def admin_process_upload(request: Request, current_username: str = Depends(get_current_username)):
+    """Обработка загруженного PDF файла"""
+    try:
+        form_data = await request.form()
+        pdf_file = form_data.get('pdf_file')
+        
+        if pdf_file and pdf_file.filename:
+            # Сохраняем файл во временную папку
+            file_contents = await pdf_file.read()
+            with open('tmp/' + pdf_file.filename, 'wb') as f:
+                f.write(file_contents)
+            
+            # Парсим PDF и обновляем прайс-лист
+            clear_price_list()
+            parse_price_list_pdf('tmp/' + pdf_file.filename)
+            
+            context = {
+                'request': request,
+                'title': "Загрузка завершена",
+                'message': "Прайс-лист успешно загружен!"
+            }
+            return templates.TemplateResponse('admin_upload.html', context)
+        else:
+            context = {
+                'request': request,
+                'title': "Ошибка загрузки",
+                'error': "Файл не выбран"
+            }
+            return templates.TemplateResponse('admin_upload.html', context, status_code=400)
+    except Exception as e:
+        context = {
+            'request': request,
+            'title': "Ошибка загрузки",
+            'error': str(e)
+        }
+        return templates.TemplateResponse('admin_upload.html', context, status_code=500)
 
 
 # **********************************************************************************************

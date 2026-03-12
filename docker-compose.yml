@@ -4,7 +4,7 @@ networks:
   oil_network:
 services:
   db:
-    image: mysql:latest
+    image: dockerhub.timeweb.cloud/library/mysql:8.0
     container_name: mysql_DB2
     environment:
       MYSQL_DATABASE: 'oilordersDB'
@@ -29,7 +29,7 @@ services:
     depends_on:
       - db
     environment:
-      DB_HOST: mysql_DB
+      DB_HOST: db
       DB_PORT: 3306
       DB_USER: 'oilorder_admin'
       DB_PASSWORD: 'oilpasswd'

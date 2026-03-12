@@ -170,3 +170,42 @@ def is_id_exist(order_id):
             return True
         else:
             return False
+
+
+# ==================== Функции для управления прайс-листом ====================
+
+def get_all_prices():
+    """Получить весь прайс-лист"""
+    with UseDatabase(config) as cursor:
+        cursor.execute("""SELECT id, oil_name, volume, price 
+                         FROM price_list 
+                         ORDER BY oil_name, volume""")
+        return cursor.fetchall()
+
+
+def update_price(price_id, new_price):
+    """Обновить цену товара по ID"""
+    with UseDatabase(config) as cursor:
+        cursor.execute("""UPDATE price_list 
+                         SET price = %s 
+                         WHERE id = %s""", (new_price, price_id))
+
+
+def delete_price(price_id):
+    """Удалить товар из прайс-листа по ID"""
+    with UseDatabase(config) as cursor:
+        cursor.execute("""DELETE FROM price_list WHERE id = %s""", (price_id,))
+
+
+def add_price_item(oil_name, volume, price):
+    """Добавить новый товар в прайс-лист"""
+    with UseDatabase(config) as cursor:
+        cursor.execute("""INSERT INTO price_list (oil_name, volume, price) 
+                         VALUES (%s, %s, %s)""", (oil_name, volume, price))
+        return cursor.lastrowid
+
+
+def clear_price_list():
+    """Очистить весь прайс-лист"""
+    with UseDatabase(config) as cursor:
+        cursor.execute("""DELETE FROM price_list""")

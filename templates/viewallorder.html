@@ -2,9 +2,14 @@
 
 {% block body %}
 
+  <div class="admin-nav">
+        <a href="/" class="navigate-button">К заказам</a>
+        <a href="/view-all-orders" class="navigate-button">Все заказы</a>
+        <a href="/admin/pricelist" class="navigate-button">Прайс-лист</a>
+        <a href="/admin/upload-pricelist" class="navigate-button">Загрузить PDF</a>
+  </div>
 
-  <body>
-    <h1>Список заказов</h1>
+  <h1>Список заказов</h1>
     <div class="to-create-button">
         <a href="/entry" class="navigate-button">К созданию заказа</a>
     </div>
@@ -45,7 +50,7 @@
                         <td>
                             <form action="/delete-order" method="post">
                                 <input type="hidden" name="id_to_delete" value="{{ row[0] }}">
-                                <button type="submit">Удалить</button>
+                                <button type="submit" class="action-button delete-button">Удалить</button>
                             </form>
                         </td>
                     </tr>
@@ -53,7 +58,5 @@
       </tbody>
     </table>
   </body>
-
-
 
 {% endblock %}

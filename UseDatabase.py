@@ -1,5 +1,6 @@
 import mysql.connector
 import socket
+import os
 
 
 class ConnectionError(Exception):
@@ -30,10 +31,11 @@ HOST_NAME = socket.gethostname()
 print(f'HOST_NAME = {HOST_NAME}')
 
 config = {
-    'host': '127.0.0.1' if HOST_NAME == 'DESKTOP-E6O7AMM' else 'mysql_DB2',
-    'user': 'oilorder_admin',
-    'password': 'oilpasswd',
-    'database': 'oilordersDB',
+    'host': os.environ.get('DB_HOST', '127.0.0.1'),
+    'port': int(os.environ.get('DB_PORT', 3306)),
+    'user': os.environ.get('DB_USER', 'oilorder_admin'),
+    'password': os.environ.get('DB_PASSWORD', 'oilpasswd'),
+    'database': os.environ.get('DB_NAME', 'oilordersDB'),
     'charset': 'utf8'
 }
 

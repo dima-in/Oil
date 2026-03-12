@@ -2,9 +2,14 @@
 
 {% block body %}
 
+  <div class="admin-nav">
+        <a href="/" class="navigate-button">К заказам</a>
+        <a href="/view-all-orders" class="navigate-button">Все заказы</a>
+        <a href="/admin/pricelist" class="navigate-button">Прайс-лист</a>
+        <a href="/admin/upload-pricelist" class="navigate-button">Загрузить PDF</a>
+  </div>
 
-  <body>
-    <h1>Список заказов</h1>
+  <h1>Список заказов</h1>
     <div class="to-create-button">
         <a href="/entry" class="navigate-button">К созданию заказа</a>
     </div>
@@ -20,8 +25,8 @@
           <th>Дата отгрузки</th>
           <th>Масло</th>
           <th>Объем (мл)</th>
-          <th>Количество (шт))</th>
-          <th>Цена (за шт))</th>
+          <th>Количество (шт)</th>
+          <th>Цена (за шт)</th>
           <th>Статус заказа</th>
           <th>Общая стоимость заказа</th>
 
@@ -48,7 +53,5 @@
       </tbody>
     </table>
   </body>
-
-
 
 {% endblock %}

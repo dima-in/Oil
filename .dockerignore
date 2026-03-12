@@ -1,0 +1,5 @@
+db_data/
+.git/
+.gitignore
+*.md
+.qwen/

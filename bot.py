@@ -22,7 +22,8 @@ from Database import (
     create_tables, insert_statuses_to_database, save_status, 
     get_status_name, save_order_details, save_order, 
     save_customer, get_customer_by_phone, select_all_orders, 
-    is_id_exist, delete_order_by_id
+    is_id_exist, delete_order_by_id, get_all_prices, update_price, 
+    add_price_item, delete_price_item
 )
 from AvitoParser import update_prices_from_avito
 
@@ -512,11 +513,126 @@ async def admin_panel(message: types.Message):
             [KeyboardButton(text="📊 Все заказы")],
             [KeyboardButton(text="❌ Удалить заказ")],
             [KeyboardButton(text="💰 Обновить цены из Avito")],
+            [KeyboardButton(text="✏️ Управление ценами")],
             [KeyboardButton(text="🔙 Назад")],
         ],
         resize_keyboard=True
     )
     await message.answer("🔧 **Панель администратора**\n\nВыберите действие:", reply_markup=admin_keyboard, parse_mode="Markdown")
+
+
+@dp.message(lambda message: message.text == "✏️ Управление ценами")
+async def manage_prices_bot(message: types.Message):
+    """Управление ценами через бота."""
+    prices = await get_all_prices()
+    
+    if not prices:
+        await message.answer("❌ Прайс-лист пуст.")
+        return
+    
+    text = "✏️ **Управление ценами**\n\nВыберите товар для редактирования:\n"
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[])
+    
+    for item_id, oil_name, volume, price in prices[:20]:  # Первые 20 товаров
+        btn_text = f"{oil_name} ({volume}мл) - {price}₽"
+        callback_data = f"price_edit_{item_id}"
+        keyboard.inline_keyboard.append([
+            InlineKeyboardButton(text=btn_text, callback_data=callback_data)
+        ])
+    
+    keyboard.inline_keyboard.append([
+        InlineKeyboardButton(text="➕ Добавить новый товар", callback_data="price_add_new")
+    ])
+    keyboard.inline_keyboard.append([
+        InlineKeyboardButton(text="🔙 В меню админа", callback_data="admin_back")
+    ])
+    
+    await message.answer(text, reply_markup=keyboard, parse_mode="Markdown")
+
+
+@dp.callback_query(lambda c: c.data.startswith("price_edit_"))
+async def edit_price_callback(callback_query: types.CallbackQuery):
+    """Редактирование цены товара."""
+    item_id = int(callback_query.data.split("_")[2])
+    product = await get_price_by_id(item_id)
+    
+    if not product:
+        await callback_query.answer("❌ Товар не найден", show_alert=True)
+        return
+    
+    _, oil_name, volume, price = product
+    
+    text = (
+        f"✏️ **Редактирование цены**\n\n"
+        f"Товар: {oil_name}\n"
+        f"Объем: {volume}мл\n"
+        f"Текущая цена: {price}₽\n\n"
+        f"Введите новую цену:"
+    )
+    
+    await callback_query.message.answer(text, parse_mode="Markdown")
+    # Сохраняем ID товара в сессии для следующего шага
+    user_sessions[callback_query.from_user.id] = {"editing_price_id": item_id}
+
+
+@dp.callback_query(lambda c: c.data == "price_add_new")
+async def add_new_price_callback(callback_query: types.CallbackQuery):
+    """Добавление нового товара."""
+    text = (
+        "➕ **Добавление нового товара**\n\n"
+        f"Введите данные в формате:\n"
+        f"`Название масла, Объем (мл), Цена`\n\n"
+        f"Пример: `Motul 8100 X-cess, 5000, 4500`"
+    )
+    await callback_query.message.answer(text, parse_mode="Markdown")
+    user_sessions[callback_query.from_user.id] = {"adding_new_price": True}
+
+
+@dp.callback_query(lambda c: c.data == "admin_back")
+async def admin_back_callback(callback_query: types.CallbackQuery):
+    """Возврат в админ-панель."""
+    await callback_query.message.delete()
+    await admin_panel(callback_query.message)
+
+
+@dp.message(lambda message: message.from_user.id in user_sessions and user_sessions[message.from_user.id].get("editing_price_id"))
+async def process_new_price(message: types.Message):
+    """Обработка новой цены."""
+    try:
+        new_price = float(message.text.strip().replace(",", "."))
+        item_id = user_sessions[message.from_user.id]["editing_price_id"]
+        
+        success = await update_price(item_id, new_price)
+        
+        if success:
+            await message.answer(f"✅ Цена обновлена на {new_price}₽")
+        else:
+            await message.answer("❌ Ошибка при обновлении цены")
+        
+        del user_sessions[message.from_user.id]["editing_price_id"]
+    except ValueError:
+        await message.answer("❌ Введите корректное числовое значение цены")
+
+
+@dp.message(lambda message: message.from_user.id in user_sessions and user_sessions[message.from_user.id].get("adding_new_price"))
+async def process_new_product(message: types.Message):
+    """Обработка добавления нового товара."""
+    try:
+        parts = message.text.strip().split(",")
+        if len(parts) != 3:
+            await message.answer("❌ Формат: Название, Объем, Цена")
+            return
+        
+        oil_name = parts[0].strip()
+        volume = int(parts[1].strip())
+        price = float(parts[2].strip().replace(",", "."))
+        
+        new_id = await add_price_item(oil_name, volume, price)
+        await message.answer(f"✅ Товар добавлен с ID: {new_id}")
+        
+        del user_sessions[message.from_user.id]["adding_new_price"]
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {str(e)}")
 
 
 @dp.message(lambda message: message.text == "💰 Обновить цены из Avito")

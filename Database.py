@@ -258,6 +258,86 @@ def delete_order_by_id(order_id_to_delete: int) -> None:
         cursor.execute(_SQL_delete_from_orders, (order_id_to_delete, ))
 
 
+async def get_all_prices() -> list:
+    """
+    Получение всего прайс-листа.
+    
+    Returns:
+        list: Список кортежей с данными о товарах (id, oil_name, volume, price)
+    """
+    with UseDatabase(config) as cursor:
+        _SQL_select_all = """SELECT id, oil_name, volume, price FROM price_list ORDER BY oil_name, volume"""
+        cursor.execute(_SQL_select_all)
+        return cursor.fetchall()
+
+
+async def get_price_by_id(item_id: int) -> tuple:
+    """
+    Получение позиции прайс-листа по ID.
+    
+    Args:
+        item_id: ID позиции в прайс-листе
+        
+    Returns:
+        tuple: Кортеж с данными (id, oil_name, volume, price) или None
+    """
+    with UseDatabase(config) as cursor:
+        _SQL_select = """SELECT id, oil_name, volume, price FROM price_list WHERE id = %s"""
+        cursor.execute(_SQL_select, (item_id,))
+        return cursor.fetchone()
+
+
+async def update_price(item_id: int, price: float) -> bool:
+    """
+    Обновление цены в прайс-листе.
+    
+    Args:
+        item_id: ID позиции в прайс-листе
+        price: Новая цена
+        
+    Returns:
+        bool: True, если обновлено, False если позиция не найдена
+    """
+    with UseDatabase(config) as cursor:
+        _SQL_update = """UPDATE price_list SET price = %s WHERE id = %s"""
+        cursor.execute(_SQL_update, (price, item_id))
+        return cursor.rowcount > 0
+
+
+async def add_price_item(oil_name: str, volume: int, price: float) -> int:
+    """
+    Добавление новой позиции в прайс-лист.
+    
+    Args:
+        oil_name: Название масла
+        volume: Объем в мл
+        price: Цена
+        
+    Returns:
+        int: ID созданной записи
+    """
+    with UseDatabase(config) as cursor:
+        _SQL_insert = """INSERT INTO price_list (oil_name, volume, price) VALUES (%s, %s, %s)"""
+        cursor.execute(_SQL_insert, (oil_name, volume, price))
+        return cursor.lastrowid
+
+
+async def delete_price_item(item_id: int) -> bool:
+    """
+    Удаление позиции из прайс-листа.
+    
+    Args:
+        item_id: ID позиции для удаления
+        
+    Returns:
+        bool: True, если удалено, False если позиция не найдена
+    """
+    with UseDatabase(config) as cursor:
+        _SQL_delete = """DELETE FROM price_list WHERE id = %s"""
+        cursor.execute(_SQL_delete, (item_id,))
+        return cursor.rowcount > 0
+
+
 def is_id_exist(order_id: int) -> bool:
     """
     Проверка существования заказа по ID.

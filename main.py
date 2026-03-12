@@ -13,6 +13,7 @@ from Catalog import add_price_data_to_table
 from Catalog import get_oil_catalog
 from Customer import Customer
 from Database import create_tables, insert_statuses_to_database, save_status, get_status_name, save_order_details, save_order, save_customer, get_customer_by_phone, select_all_orders,  is_id_exist
+from Database import get_all_prices, update_price, add_price_item, delete_price_item
 from OilOrder import OilOrder
 from OrderItem import OrderItem
 from Database import delete_order_dy_id
@@ -137,6 +138,52 @@ async def delite_order(request: Request):
     else:
         print('Неверный order_id')
     return RedirectResponse("/view-all-orders", status_code=303)
+
+
+@app.get('/manage-prices')
+async def manage_prices_page(request: Request, current_username: str = Depends(get_current_username)):
+    """
+    Страница управления ценами (просмотр, редактирование, добавление, удаление).
+    """
+    prices = await get_all_prices()
+    context = {'request': request, 'title': "Управление ценами", 'prices': prices}
+    return templates.TemplateResponse('manage_prices.html', context)
+
+
+@app.post('/update-price')
+async def update_price_endpoint(request: Request, current_username: str = Depends(get_current_username)):
+    """
+    Обновление цены товара.
+    """
+    form_data = await request.form()
+    item_id = int(form_data.get('item_id'))
+    new_price = float(form_data.get('price'))
+    await update_price(item_id, new_price)
+    return RedirectResponse("/manage-prices", status_code=303)
+
+
+@app.post('/add-price-item')
+async def add_price_item_endpoint(request: Request, current_username: str = Depends(get_current_username)):
+    """
+    Добавление новой позиции в прайс-лист.
+    """
+    form_data = await request.form()
+    oil_name = form_data.get('oil_name')
+    volume = int(form_data.get('volume'))
+    price = float(form_data.get('price'))
+    await add_price_item(oil_name, volume, price)
+    return RedirectResponse("/manage-prices", status_code=303)
+
+
+@app.post('/delete-price-item')
+async def delete_price_item_endpoint(request: Request, current_username: str = Depends(get_current_username)):
+    """
+    Удаление позиции из прайс-листа.
+    """
+    form_data = await request.form()
+    item_id = int(form_data.get('item_id'))
+    await delete_price_item(item_id)
+    return RedirectResponse("/manage-prices", status_code=303)
 
 
 # **********************************************************************************************

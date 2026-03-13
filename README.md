@@ -1,96 +1,137 @@
+# OilPress - Магазин масел
 
-# Oil Orders
+Современное веб-приложение для управления заказами масел с дизайном в стиле iOS/macOS.
 
-Это приложение предназначено для управления заказами поставки масла. Пользователи могут создавать новые заказы, просматривать существующие заказы, стоимость и изменять их статус.
+## Быстрый старт
 
-## Установка и запуск
+### 1. Запуск backend (Docker)
 
-Для установки и запуска приложения, выполните следующие шаги:
+```bash
+docker compose up -d
+```
 
-1. Убедитесь, что у вас установлен Docker и docker-compose.
+Backend доступен на http://localhost:8000
 
-2. Загрузите образ приложения с помощью команды:
+### 2. Запуск frontend (локальная разработка)
 
-	```shell
- 
-	docker pull dimain0101010/8001_web
- 
-	```
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-3. Перейдите в каталог приложения:
+Frontend доступен на http://localhost:5173
 
-	```shell
- 
-	cd Oil
- 
-	```
+## Структура проекта
 
-4. Скопируйте файл docker-compose в выбранную директорию Oil:
+```
+Oil/
+├── frontend/          # React + Vite + Tailwind CSS
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Catalog.jsx       # Каталог товаров
+│   │   │   ├── OrdersView.jsx    # Просмотр заказов
+│   │   │   ├── AdminPanel.jsx    # Админ-панель
+│   │   │   ├── PricelistManager.jsx  # Управление ценами
+│   │   │   └── UploadPricelist.jsx   # Загрузка прайс-листа
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   └── package.json
+├── main.py            # FastAPI backend
+├── Database.py        # Работа с БД
+├── docker-compose.yml # Docker конфигурация
+└── README.md
+```
 
-	```shell
- 
-	git clone https://github.com/dima-in/Oil/blob/master/docker-compose.yml
- 
-	```
+## API Endpoints
 
-5. Соберите Docker-образ приложения и запустите контейнеры:
+### Catalog
+- `GET /api/catalog` - Получить каталог товаров
 
-	```shell
- 
-	docker-compose up --build
- 
-	```
+### Orders
+- `GET /api/orders` - Получить все заказы
+- `POST /api/order` - Создать заказ
+- `DELETE /api/order/{id}` - Удалить заказ
 
-После выполнения этих шагов, ваше приложение будет доступно по адресу http://localhost:8001.
+### Admin: Pricelist
+- `GET /api/admin/pricelist` - Получить прайс-лист
+- `POST /api/admin/pricelist` - Добавить товар
+- `PUT /api/admin/pricelist/{id}` - Обновить цену
+- `DELETE /api/admin/pricelist/{id}` - Удалить товар
+- `POST /api/admin/pricelist/clear` - Очистить прайс-лист
+- `POST /api/admin/upload-pricelist` - Загрузить PDF/CSV
 
-## Использование
+## Учётные данные
 
-### Создание заказа
+**Логин:** `oilpress`  
+**Пароль:** `MarshallJCM800`
 
-Чтобы создать новый заказ, выполните следующие шаги:
+## Технологии
 
-1. Откройте веб-браузер и перейдите по адресу http://localhost:8001.
+**Frontend:**
+- React 19
+- Vite 8
+- Tailwind CSS 4
+- React Router 7
 
-2. Выберете необходимое количество и обьем масла. Выбранные товары и стоимость отобразятся в блоке 'Выбранные продукты'
+**Backend:**
+- FastAPI
+- MySQL 8.0
+- Uvicorn
 
-3. Откраойте выпадающее меню 'Сохранить заказ'
+**DevOps:**
+- Docker & Docker Compose
 
-4. Заполните необходимые данные в форме на странице и нажмите кнопку "Создать заказ".
+## Развёртывание на Yandex Cloud
 
-5. Введите логин и пароль: 'admin'/'admin'
+### 1. Создать ВМ (Compute Cloud)
 
-6. Ваш заказ будет сохранен в базе данных.
+```bash
+# Минимальная конфигурация: 2 vCPU, 2GB RAM
+yc compute instance create \
+  --name oilpress \
+  --zone ru-central1-a \
+  --platform standard-v3 \
+  --cores 2 --memory 2 \
+  --image-folder id=standard-images \
+  --image-name ubuntu-2204-lts \
+  --public-ip \
+  --metadata user-data-from-file=cloud-init.yaml
+```
 
-### Просмотр заказов
+### 2. Подключиться и установить Docker
 
-Чтобы просмотреть существующие заказы, выполните следующие шаги:
+```bash
+ssh ubuntu@<VM_IP>
 
-1. Откройте веб-браузер и перейдите по адресу http://localhost:8000/view-all-orders.
+# Установка Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
 
-2. Введите логин и пароль:  'admin'/'admin'
+# Установка Docker Compose
+sudo apt update && sudo apt install docker-compose-plugin
+```
 
-2. Вы увидите список всех заказов.
+### 3. Развернуть приложение
 
-### Изменение статуса заказа
+```bash
+# Клонировать репозиторий
+git clone https://github.com/dima-in/Oil.git
+cd Oil
 
-Чтобы удалить заказ, выполните следующие шаги:
+# Собрать frontend
+cd frontend
+npm install
+npm run build
+cd ..
 
-1. Откройте веб-браузер и перейдите по адресу http://localhost:8000/view-all-orders.
+# Скопировать статику
+cp -r frontend/dist/* static/
 
-2. Введите логин и пароль:  'admin'/'admin'
+# Запустить Docker
+docker compose up -d
+```
 
-3. Нажмите кнопку "Удалить"
+## Лицензия
 
-## Зависимости
-
-Приложение использует следующие зависимости:
-
-- FastAPI - фреймворк для создания веб-приложений на Python.
-- MySQL - система управления базами данных.
-- Docker - платформа для разработки, доставки и запуска приложений в контейнерах.
-- Полный список зависимостей в файле requirements.txt.
-
-## Разработчик
-
-Приложение разработал Дмитрий Иноземцев и доступно на GitHub: https://github.com/dima-in/Oil.git.
-
+MIT

@@ -1,0 +1,10 @@
+# Database data
+db_data/
+tmp/
+__pycache__/
+*.pyc
+.env
+.vs/
+.idea/
+frontend/node_modules/
+frontend/dist/

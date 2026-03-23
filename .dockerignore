@@ -4,8 +4,7 @@ db_data/
 *.md
 .qwen/
 .vs/
-frontend/node_modules/
-frontend/dist/
 __pycache__/
 *.pyc
 .env
+frontend/node_modules/

@@ -1,31 +1,53 @@
 import secrets
-from datetime import datetime
-from typing import List, Dict
+from datetime import date, datetime
+from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, status
-from fastapi import Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
-from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
 from starlette.staticfiles import StaticFiles
 
 from Catalog import add_price_data_to_table, get_oil_catalog
 from Customer import Customer
-from Database import create_tables, insert_statuses_to_database, save_status, get_status_name, save_order_details, save_order, save_customer, get_customer_by_phone, select_all_orders,  is_id_exist
-from Database import get_all_prices, update_price, delete_price, add_price_item, clear_price_list
+from Database import (
+    add_expense_entry,
+    add_price_item,
+    add_production_batch,
+    clear_price_list,
+    create_tables,
+    delete_expense_entry,
+    delete_order_dy_id,
+    delete_price,
+    delete_production_batch,
+    get_all_prices,
+    get_batch_analytics,
+    get_customer_by_phone,
+    list_expense_entries,
+    list_production_batches,
+    get_price_item,
+    get_profit_summary,
+    get_status_name,
+    insert_statuses_to_database,
+    is_id_exist,
+    save_customer,
+    save_order,
+    save_order_details,
+    save_status,
+    select_all_orders,
+    update_price_item,
+)
+from ExtractPDFPriceListTable import parse_price_list_pdf
 from OilOrder import OilOrder
 from OrderItem import OrderItem
-from Database import delete_order_dy_id
-from ExtractPDFPriceListTable import parse_price_list_pdf
 
 app = FastAPI()
 
-# CORS для frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # В production заменить на конкретный домен
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,17 +56,6 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory='templates')
 security = HTTPBasic()
-
-
-@app.get('/', response_class=HTMLResponse)
-@app.get('/entry', response_class=HTMLResponse)
-def view(request: Request):
-    """
-    entry() - обработчик GET-запроса для вывода начального шаблона
-    """
-    oil_catalog = get_oil_catalog()
-    context = {"request": request, 'title': "Начальная страница", 'oil_catalog': oil_catalog}
-    return templates.TemplateResponse('inputdata.html', context)
 
 
 def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
@@ -64,6 +75,18 @@ def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
     return credentials.username
 
 
+def parse_date_or_none(value: Optional[str]):
+    if not value:
+        return None
+    return datetime.strptime(value, '%Y-%m-%d').date()
+
+
+def default_analytics_range():
+    today = date.today()
+    start = today.replace(day=1)
+    return start, today
+
+
 @app.post('/create-order')
 async def create_order(request: Request, current_username: str = Depends(get_current_username)):
     await create_tables()
@@ -71,51 +94,46 @@ async def create_order(request: Request, current_username: str = Depends(get_cur
     await add_price_data_to_table()
     form_data = await request.form()
 
-    date = datetime.now()
+    order_date = datetime.now()
     name = form_data.get('name')
     surname = form_data.get('surname')
     phone = form_data.get('phone')
     address = form_data.get('address')
-    status = int(form_data.get('status'))
+    order_status = int(form_data.get('status'))
     products = form_data.get('selected_products')
-    shipping_date = datetime.strptime(form_data.get('shipping_date'), '%Y-%m-%d')  # парсим дату доставки из формы
+    shipping_date = datetime.strptime(form_data.get('shipping_date'), '%Y-%m-%d')
 
-    """запрос в БД осуществляет поикс клиента по номеру телефона """
     existing_customer = await get_customer_by_phone(phone)
-
-    """если по указанному номеру клиент  не найден, создать нового клиента"""
     if existing_customer is None:
         customer_id = await save_customer(address, name, phone, surname)
     else:
-        customer_id = existing_customer[0]  # получаем ID существующего клиента
+        customer_id = existing_customer[0]
 
-    """создание экземпляра клиента customer для передачи в экземпляр заказа order"""
     customer = Customer(id=customer_id, name=name, surname=surname, phone=phone, address=address)
-    """создание экземпляр заказа"""
-    order = OilOrder(customer, data=date, shipping_date=shipping_date)
+    order = OilOrder(customer, data=order_date, shipping_date=shipping_date)
 
-    """извлечение заказа из формы products = form_data.get('select_products'),
-    создание экземпляра продукта product и добавление в список деталей заказа
-    """
-
-    for product in products.split(','):  # получаем детали заказа из формы
+    for product in products.split(','):
         oil_name, volume, price, count = product.split('_')
-        product = OrderItem(oil_name=oil_name, volume=int(volume.replace('мл', '')),
-                            count=int(count.replace('x ', '')), price=float(price.replace('руб', '')))
-        order.add_bottle(product)
+        price_item = get_price_item(oil_name, int(volume.replace('мл', '')))
+        order_item = OrderItem(
+            oil_name=oil_name,
+            volume=int(volume.replace('мл', '')),
+            count=int(count.replace('x ', '')),
+            price=float(price.replace('руб', '')),
+            seed_weight_kg=float(price_item['seed_weight_kg']) if price_item else 0,
+            seed_price_per_kg=float(price_item['seed_price_per_kg']) if price_item else 0,
+        )
+        order.add_bottle(order_item)
 
-    """сохранение заказа в БД"""
-    order_id = await save_order(customer_id, date, order, shipping_date, status)
+    order_id = await save_order(customer_id, order_date, order, shipping_date, order_status)
 
-    """сохранение деталей заказа"""
     for product in order.order_details:
         await save_order_details(order_id, product)
-    """получение имени статуса """
-    status_name = await get_status_name(status)
-    """запись текущего статуса"""
-    await save_status(order_id, status, status_name)
 
-    oil_catalog = get_oil_catalog()  # TODO! DRY!!
+    status_name = await get_status_name(order_status)
+    await save_status(order_id, order_status, status_name)
+
+    oil_catalog = get_oil_catalog()
     context = {"request": request, 'title': "Начальная страница", 'oil_catalog': oil_catalog}
     return templates.TemplateResponse('inputdata.html', context)
 
@@ -127,15 +145,13 @@ def read_current_user(username: str = Depends(get_current_username)):
 
 @app.get('/view-all-orders')
 async def show_orders(request: Request, current_username: str = Depends(get_current_username)):
-    print("Request body:", await request.body())
-
     order = select_all_orders()
     context = {'request': request, 'title': "Начальная страница", 'order': order}
     return templates.TemplateResponse('viewallorder.html', context)
 
 
 @app.get('/view-orders')
-def show_orders(request: Request):
+def show_orders_public(request: Request):
     order = select_all_orders()
     context = {'request': request, 'title': "Начальная страница", 'order': order}
     return templates.TemplateResponse('vieworder.html', context)
@@ -147,18 +163,11 @@ async def delite_order(request: Request):
     order_id = int(form_data.get('id_to_delete'))
     if is_id_exist(order_id):
         delete_order_dy_id(order_id)
-    else:
-        print('Неверный order_id')
     return RedirectResponse("/view-all-orders", status_code=303)
 
 
-# **********************************************************************************************
-# ==================== Админ-панель: Управление прайс-листом ====================
-# **********************************************************************************************
-
 @app.get('/admin/pricelist')
 def admin_pricelist(request: Request, current_username: str = Depends(get_current_username)):
-    """Страница управления прайс-листом"""
     prices = get_all_prices()
     context = {
         'request': request,
@@ -170,17 +179,23 @@ def admin_pricelist(request: Request, current_username: str = Depends(get_curren
 
 @app.post('/admin/pricelist/update')
 async def admin_update_price(request: Request, current_username: str = Depends(get_current_username)):
-    """Обновление цены товара"""
     form_data = await request.form()
     price_id = int(form_data.get('price_id'))
     new_price = float(form_data.get('new_price'))
-    update_price(price_id, new_price)
+    item = get_price_item(form_data.get('oil_name'), int(form_data.get('volume')))
+    update_price_item(
+        price_id,
+        form_data.get('oil_name'),
+        int(form_data.get('volume')),
+        new_price,
+        float(item['seed_weight_kg']) if item else 0,
+        float(item['seed_price_per_kg']) if item else 0,
+    )
     return RedirectResponse("/admin/pricelist", status_code=303)
 
 
 @app.post('/admin/pricelist/delete')
 async def admin_delete_price(request: Request, current_username: str = Depends(get_current_username)):
-    """Удаление товара из прайс-листа"""
     form_data = await request.form()
     price_id = int(form_data.get('price_id'))
     delete_price(price_id)
@@ -189,25 +204,25 @@ async def admin_delete_price(request: Request, current_username: str = Depends(g
 
 @app.post('/admin/pricelist/add')
 async def admin_add_price(request: Request, current_username: str = Depends(get_current_username)):
-    """Добавление нового товара в прайс-лист"""
     form_data = await request.form()
-    oil_name = form_data.get('oil_name')
-    volume = int(form_data.get('volume'))
-    price = float(form_data.get('price'))
-    add_price_item(oil_name, volume, price)
+    add_price_item(
+        form_data.get('oil_name'),
+        int(form_data.get('volume')),
+        float(form_data.get('price')),
+        float(form_data.get('seed_weight_kg', 0) or 0),
+        float(form_data.get('seed_price_per_kg', 0) or 0),
+    )
     return RedirectResponse("/admin/pricelist", status_code=303)
 
 
 @app.post('/admin/pricelist/clear')
 async def admin_clear_pricelist(request: Request, current_username: str = Depends(get_current_username)):
-    """Очистка всего прайс-листа"""
     clear_price_list()
     return RedirectResponse("/admin/pricelist", status_code=303)
 
 
 @app.get('/admin/upload-pricelist')
 def admin_upload_pricelist(request: Request, current_username: str = Depends(get_current_username)):
-    """Страница загрузки PDF прайс-листа"""
     context = {
         'request': request,
         'title': "Загрузка прайс-листа"
@@ -217,57 +232,50 @@ def admin_upload_pricelist(request: Request, current_username: str = Depends(get
 
 @app.post('/admin/upload-pricelist')
 async def admin_process_upload(request: Request, current_username: str = Depends(get_current_username)):
-    """Обработка загруженного PDF файла"""
     try:
         form_data = await request.form()
         pdf_file = form_data.get('pdf_file')
-        
+
         if pdf_file and pdf_file.filename:
-            # Сохраняем файл во временную папку
             file_contents = await pdf_file.read()
-            with open('tmp/' + pdf_file.filename, 'wb') as f:
-                f.write(file_contents)
-            
-            # Парсим PDF и обновляем прайс-лист
+            with open('tmp/' + pdf_file.filename, 'wb') as temp_file:
+                temp_file.write(file_contents)
+
             clear_price_list()
             parse_price_list_pdf('tmp/' + pdf_file.filename)
-            
+
             context = {
                 'request': request,
                 'title': "Загрузка завершена",
                 'message': "Прайс-лист успешно загружен!"
             }
             return templates.TemplateResponse('admin_upload.html', context)
-        else:
-            context = {
-                'request': request,
-                'title': "Ошибка загрузки",
-                'error': "Файл не выбран"
-            }
-            return templates.TemplateResponse('admin_upload.html', context, status_code=400)
-    except Exception as e:
+
         context = {
             'request': request,
             'title': "Ошибка загрузки",
-            'error': str(e)
+            'error': "Файл не выбран"
+        }
+        return templates.TemplateResponse('admin_upload.html', context, status_code=400)
+    except Exception as error:
+        context = {
+            'request': request,
+            'title': "Ошибка загрузки",
+            'error': str(error)
         }
         return templates.TemplateResponse('admin_upload.html', context, status_code=500)
 
 
-# **********************************************************************************************
-# ==================== API для Frontend (React) ====================
-# **********************************************************************************************
-
 @app.get('/api/catalog')
-def api_get_catalog():
-    """Получить каталог товаров для frontend"""
+async def api_get_catalog():
+    await create_tables()
     catalog = get_oil_catalog()
     return [{"oil_name": item[0], "volume": item[1], "price": item[2]} for item in catalog]
 
 
 @app.get('/api/orders')
-def api_get_orders(current_username: str = Depends(get_current_username)):
-    """Получить все заказы для frontend"""
+async def api_get_orders(current_username: str = Depends(get_current_username)):
+    await create_tables()
     orders = select_all_orders()
     result = []
     for row in orders:
@@ -278,149 +286,284 @@ def api_get_orders(current_username: str = Depends(get_current_username)):
             "shipping_date": str(row[3]) if row[3] else None,
             "total_price": row[4],
             "status": row[5],
-            "customer_name": row[7],
-            "customer_surname": row[8],
-            "customer_phone": row[9],
-            "customer_address": row[10],
-            "oil_name": row[13],
-            "volume": row[14],
-            "count": row[15],
-            "price": row[16]
+            "customer_name": row[6],
+            "customer_surname": row[7],
+            "customer_phone": row[8],
+            "customer_address": row[9],
+            "oil_name": row[10],
+            "volume": row[11],
+            "count": row[12],
+            "price": row[13],
+            "seed_weight_kg": row[14],
+            "seed_price_per_kg": row[15],
+            "seed_cost": row[16],
+            "revenue": row[17],
+            "profit": row[18],
         })
     return result
 
 
 @app.post('/api/order')
 async def api_create_order(request: Request, current_username: str = Depends(get_current_username)):
-    """Создать заказ из frontend"""
     await create_tables()
     await insert_statuses_to_database()
-    
+
     data = await request.json()
-    
-    date = datetime.now()
+
+    order_date = datetime.now()
     name = data.get('name')
     surname = data.get('surname')
     phone = data.get('phone')
     address = data.get('address')
-    status = int(data.get('status', 0))
+    order_status = int(data.get('status', 0))
     items = data.get('items', [])
     shipping_date = datetime.strptime(data.get('shipping_date'), '%Y-%m-%d')
-    
+
     existing_customer = await get_customer_by_phone(phone)
-    
     if existing_customer is None:
         customer_id = await save_customer(address, name, phone, surname)
     else:
         customer_id = existing_customer[0]
-    
+
     customer = Customer(id=customer_id, name=name, surname=surname, phone=phone, address=address)
-    order = OilOrder(customer, data=date, shipping_date=shipping_date)
-    
+    order = OilOrder(customer, data=order_date, shipping_date=shipping_date)
+
     for item in items:
+        price_item = get_price_item(item['oil_name'], int(item['volume']))
         product = OrderItem(
             oil_name=item['oil_name'],
             volume=int(item['volume']),
             count=int(item['count']),
-            price=float(item['price'])
+            price=float(item['price']),
+            seed_weight_kg=float(price_item['seed_weight_kg']) if price_item else 0,
+            seed_price_per_kg=float(price_item['seed_price_per_kg']) if price_item else 0,
         )
         order.add_bottle(product)
-    
-    order_id = await save_order(customer_id, date, order, shipping_date, status)
-    
+
+    order_id = await save_order(customer_id, order_date, order, shipping_date, order_status)
+
     for product in order.order_details:
         await save_order_details(order_id, product)
-    
-    status_name = await get_status_name(status)
-    await save_status(order_id, status, status_name)
-    
+
+    status_name = await get_status_name(order_status)
+    await save_status(order_id, order_status, status_name)
+
     return {"success": True, "order_id": order_id}
 
 
 @app.get('/api/admin/pricelist')
-def api_get_pricelist(current_username: str = Depends(get_current_username)):
-    """Получить прайс-лист для frontend"""
+async def api_get_pricelist(current_username: str = Depends(get_current_username)):
+    await create_tables()
     prices = get_all_prices()
-    return [{"id": p[0], "oil_name": p[1], "volume": p[2], "price": p[3]} for p in prices]
+    return [
+        {
+            "id": p[0],
+            "oil_name": p[1],
+            "volume": p[2],
+            "price": p[3],
+            "seed_weight_kg": p[4],
+            "seed_price_per_kg": p[5],
+        }
+        for p in prices
+    ]
 
 
 @app.post('/api/admin/pricelist')
-def api_add_price_item(item: dict, current_username: str = Depends(get_current_username)):
-    """Добавить товар в прайс-лист"""
-    add_price_item(item['oil_name'], int(item['volume']), float(item['price']))
+async def api_add_price_item(item: dict, current_username: str = Depends(get_current_username)):
+    await create_tables()
+    add_price_item(
+        item['oil_name'],
+        int(item['volume']),
+        float(item['price']),
+        float(item.get('seed_weight_kg', 0) or 0),
+        float(item.get('seed_price_per_kg', 0) or 0),
+    )
     return {"success": True}
 
 
 @app.put('/api/admin/pricelist/{price_id}')
-def api_update_price(price_id: int, price_data: dict, current_username: str = Depends(get_current_username)):
-    """Обновить цену товара"""
-    update_price(price_id, float(price_data['price']))
+async def api_update_price(price_id: int, price_data: dict, current_username: str = Depends(get_current_username)):
+    await create_tables()
+    current_item = next((item for item in get_all_prices() if item[0] == price_id), None)
+    if current_item is None:
+        raise HTTPException(status_code=404, detail="Товар не найден")
+
+    update_price_item(
+        price_id,
+        price_data.get('oil_name', current_item[1]),
+        int(price_data.get('volume', current_item[2])),
+        float(price_data.get('price', current_item[3])),
+        float(price_data.get('seed_weight_kg', current_item[4])),
+        float(price_data.get('seed_price_per_kg', current_item[5])),
+    )
     return {"success": True}
 
 
 @app.delete('/api/admin/pricelist/{price_id}')
-def api_delete_price(price_id: int, current_username: str = Depends(get_current_username)):
-    """Удалить товар из прайс-листа"""
+async def api_delete_price(price_id: int, current_username: str = Depends(get_current_username)):
     delete_price(price_id)
     return {"success": True}
 
 
 @app.post('/api/admin/pricelist/clear')
-def api_clear_pricelist(current_username: str = Depends(get_current_username)):
-    """Очистить весь прайс-лист"""
+async def api_clear_pricelist(current_username: str = Depends(get_current_username)):
     clear_price_list()
     return {"success": True}
 
 
+@app.get('/api/admin/analytics')
+async def api_admin_analytics(
+    period: str = Query('month', pattern='^(day|week|month)$'),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    daily_batch_limit: int = Query(3, ge=1, le=24),
+    current_username: str = Depends(get_current_username),
+):
+    await create_tables()
+    parsed_from = parse_date_or_none(date_from)
+    parsed_to = parse_date_or_none(date_to)
+    if parsed_from is None and parsed_to is None:
+        parsed_from, parsed_to = default_analytics_range()
+    summary = get_profit_summary(parsed_from, parsed_to, period)
+    summary['batch_analytics'] = get_batch_analytics(parsed_from, parsed_to, daily_batch_limit)
+    return summary
+
+
+@app.get('/api/admin/expenses')
+async def api_admin_expenses(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    current_username: str = Depends(get_current_username),
+):
+    await create_tables()
+    return list_expense_entries(parse_date_or_none(date_from), parse_date_or_none(date_to))
+
+
+@app.post('/api/admin/expenses')
+async def api_add_expense(
+    expense_data: dict,
+    current_username: str = Depends(get_current_username),
+):
+    await create_tables()
+    expense_date = parse_date_or_none(expense_data.get('expense_date'))
+    if expense_date is None:
+        raise HTTPException(status_code=400, detail='expense_date is required')
+
+    goods_total = expense_data.get('goods_total')
+    weight_kg = float(expense_data.get('weight_kg', 0) or 0)
+    price_per_kg = float(expense_data.get('price_per_kg', 0) or 0)
+    if goods_total in (None, ''):
+        goods_total = weight_kg * price_per_kg
+
+    expense_id = add_expense_entry(
+        expense_date,
+        expense_data.get('item_name', ''),
+        weight_kg,
+        price_per_kg,
+        float(goods_total or 0),
+        float(expense_data.get('delivery_cost', 0) or 0),
+        float(expense_data.get('carsharing_cost', 0) or 0),
+        expense_data.get('note'),
+    )
+    return {'success': True, 'id': expense_id}
+
+
+@app.delete('/api/admin/expenses/{expense_id}')
+async def api_delete_expense(
+    expense_id: int,
+    current_username: str = Depends(get_current_username),
+):
+    delete_expense_entry(expense_id)
+    return {'success': True}
+
+
+@app.get('/api/admin/production-batches')
+async def api_admin_production_batches(
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    current_username: str = Depends(get_current_username),
+):
+    await create_tables()
+    return list_production_batches(parse_date_or_none(date_from), parse_date_or_none(date_to))
+
+
+@app.post('/api/admin/production-batches')
+async def api_add_production_batch(
+    batch_data: dict,
+    current_username: str = Depends(get_current_username),
+):
+    await create_tables()
+    batch_date = parse_date_or_none(batch_data.get('batch_date'))
+    if batch_date is None:
+        raise HTTPException(status_code=400, detail='batch_date is required')
+
+    seed_weight_kg = float(batch_data.get('seed_weight_kg', 0) or 0)
+    yield_percent = float(batch_data.get('yield_percent', 0) or 0)
+    output_volume_ml = batch_data.get('output_volume_ml')
+    if output_volume_ml in (None, ''):
+        output_volume_ml = seed_weight_kg * yield_percent * 10
+
+    batch_id = add_production_batch(
+        batch_date,
+        batch_data.get('oil_name', ''),
+        seed_weight_kg,
+        float(batch_data.get('seed_price_per_kg', 0) or 0),
+        yield_percent,
+        float(output_volume_ml or 0),
+        float(batch_data.get('labor_cost', 0) or 0),
+        float(batch_data.get('packaging_cost', 0) or 0),
+        float(batch_data.get('other_cost', 0) or 0),
+        batch_data.get('note'),
+    )
+    return {'success': True, 'id': batch_id}
+
+
+@app.delete('/api/admin/production-batches/{batch_id}')
+async def api_delete_production_batch(
+    batch_id: int,
+    current_username: str = Depends(get_current_username),
+):
+    delete_production_batch(batch_id)
+    return {'success': True}
+
+
 @app.post('/api/admin/upload-pricelist')
 async def api_upload_pricelist(request: Request, current_username: str = Depends(get_current_username)):
-    """Загрузить прайс-лист из файла"""
     try:
         form_data = await request.form()
         pdf_file = form_data.get('pdf_file')
-        
+
         if pdf_file and pdf_file.filename:
             file_contents = await pdf_file.read()
             filename = pdf_file.filename.replace(' ', '_')
-            with open('tmp/' + filename, 'wb') as f:
-                f.write(file_contents)
-            
+            with open('tmp/' + filename, 'wb') as temp_file:
+                temp_file.write(file_contents)
+
             clear_price_list()
-            # Здесь должен быть вызов функции парсинга PDF
-            # parse_price_list_pdf('tmp/' + filename)
-            
             return {"success": True, "message": "Прайс-лист загружен"}
-        else:
-            raise HTTPException(status_code=400, detail="Файл не выбран")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+        raise HTTPException(status_code=400, detail="Файл не выбран")
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=str(error))
 
 
 @app.delete('/api/order/{order_id}')
-def api_delete_order(order_id: int, current_username: str = Depends(get_current_username)):
-    """Удалить заказ"""
+async def api_delete_order(order_id: int, current_username: str = Depends(get_current_username)):
     if is_id_exist(order_id):
         delete_order_dy_id(order_id)
         return {"success": True}
     raise HTTPException(status_code=404, detail="Заказ не найден")
 
 
-# **********************************************************************************************
-# ==================== Frontend Routes ====================
-# **********************************************************************************************
-
+@app.get('/')
 @app.get('/app')
 @app.get('/app/')
 @app.get('/app/{path:path}')
 def serve_frontend(request: Request, path: str = ""):
-    """Раздача React frontend"""
     return templates.TemplateResponse('index.html', {"request": request})
-
-
-# **********************************************************************************************
 
 
 if __name__ == '__main__':
     import uvicorn
 
-    uvicorn.run(app)
+    uvicorn.run(app, host='0.0.0.0', port=8000)

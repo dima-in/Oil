@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
-
-const API_BASE = '/api'
+import { useEffect, useMemo, useState } from 'react'
+import PageHeader from './PageHeader'
+import StatusBadge from './StatusBadge'
+import { api } from '../lib/api'
+import { STATUS_MAP } from '../lib/constants'
 
 export default function OrdersView() {
   const [orders, setOrders] = useState([])
@@ -8,14 +10,12 @@ export default function OrdersView() {
   const [filter, setFilter] = useState('all')
 
   useEffect(() => {
-    fetchOrders()
+    loadOrders()
   }, [])
 
-  const fetchOrders = async () => {
+  const loadOrders = async () => {
     try {
-      const response = await fetch(`${API_BASE}/orders`)
-      if (!response.ok) throw new Error('Failed to fetch')
-      const data = await response.json()
+      const data = await api.getOrders()
       setOrders(data)
     } catch (error) {
       console.error('Error fetching orders:', error)
@@ -24,149 +24,139 @@ export default function OrdersView() {
     }
   }
 
-  const deleteOrder = async (id) => {
-    if (!confirm('Удалить заказ #' + id + '?')) return
+  const filteredOrders = useMemo(() => {
+    if (filter === 'all') {
+      return orders
+    }
+
+    return orders.filter((order) => String(order.status) === filter)
+  }, [filter, orders])
+
+  const filterOptions = useMemo(() => {
+    const counts = orders.reduce((accumulator, order) => {
+      const status = String(order.status)
+      accumulator[status] = (accumulator[status] || 0) + 1
+      return accumulator
+    }, {})
+
+    return Object.entries(counts).map(([status, count]) => ({
+      status,
+      count,
+      label: STATUS_MAP[status]?.label || status,
+    }))
+  }, [orders])
+
+  const handleDeleteOrder = async (id) => {
+    if (!window.confirm(`Удалить заказ #${id}?`)) {
+      return
+    }
+
     try {
-      const response = await fetch(`${API_BASE}/order/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': 'Basic ' + btoa('oilpress:MarshallJCM800')
-        }
-      })
-      if (!response.ok) throw new Error('Failed to delete')
-      fetchOrders()
+      await api.deleteOrder(id)
+      await loadOrders()
     } catch (error) {
-      alert('Ошибка удаления: ' + error.message)
+      alert(`Ошибка удаления: ${error.message}`)
     }
   }
-
-  const getStatusColor = (status) => {
-    const colors = {
-      '0': 'blue',
-      '1': 'green',
-      '2': 'purple',
-      '3': 'orange',
-      '4': 'green',
-      '5': 'blue',
-      '6': 'red',
-      '7': 'orange'
-    }
-    return colors[status] || 'gray'
-  }
-
-  const getStatusLabel = (status) => {
-    const labels = {
-      '0': 'новый',
-      '1': 'получена предоплата',
-      '2': 'Avito доставка',
-      '3': 'Ozon',
-      '4': 'завершен',
-      '5': 'готов к выдаче',
-      '6': 'отменен',
-      '7': 'ожидает предоплаты'
-    }
-    return labels[status] || status
-  }
-
-  const filteredOrders = filter === 'all' 
-    ? orders 
-    : orders.filter(o => o.status === filter)
-
-  const uniqueStatuses = [...new Set(orders.map(o => o.status))]
 
   if (loading) {
-    return <div className="text-center py-8 text-gray-400">Загрузка заказов...</div>
+    return <div className="state-panel">Загрузка заказов...</div>
   }
 
   return (
-    <div className="animate-fade-in">
-      <h1 className="text-3xl font-bold mb-6 bg-gradient-to-r from-green-400 to-green-600 bg-clip-text text-transparent">
-        📋 Заказы
-      </h1>
+    <div className="page-stack">
+      <PageHeader
+        eyebrow="История"
+        title="Заказы"
+        description="По каждому заказу видно выручку, расход семян и прибыль по позиции."
+      />
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+      <div className="filter-row">
         <button
+          type="button"
           onClick={() => setFilter('all')}
-          className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
-            filter === 'all'
-              ? 'bg-green-500/20 text-green-400'
-              : 'text-gray-400 hover:text-white hover:bg-white/5'
-          }`}
+          className={filter === 'all' ? 'filter-chip filter-chip--active' : 'filter-chip'}
         >
           Все ({orders.length})
         </button>
-        {uniqueStatuses.map(status => (
+        {filterOptions.map((option) => (
           <button
-            key={status}
-            onClick={() => setFilter(status)}
-            className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
-              filter === status
-                ? 'bg-green-500/20 text-green-400'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
+            key={option.status}
+            type="button"
+            onClick={() => setFilter(option.status)}
+            className={filter === option.status ? 'filter-chip filter-chip--active' : 'filter-chip'}
           >
-            {getStatusLabel(status)} ({orders.filter(o => o.status === status).length})
+            {option.label} ({option.count})
           </button>
         ))}
       </div>
 
-      {/* Orders List */}
-      <div className="space-y-3">
-        {filteredOrders.length === 0 ? (
-          <div className="ios-card text-center py-8 text-gray-400">
-            Нет заказов
-          </div>
-        ) : (
-          filteredOrders.map((order) => (
-            <div key={order.id} className="ios-card">
-              <div className="flex items-start justify-between mb-3">
+      {filteredOrders.length === 0 ? (
+        <div className="state-panel">Нет заказов для выбранного фильтра.</div>
+      ) : (
+        <div className="order-list">
+          {filteredOrders.map((order) => (
+            <article key={`${order.id}_${order.oil_name}_${order.volume}`} className="order-card">
+              <div className="order-card__top">
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg font-bold">Заказ #{order.id}</span>
-                    <span className={`ios-badge ${getStatusColor(order.status)}`}>
-                      {getStatusLabel(order.status)}
-                    </span>
+                  <div className="order-card__title-row">
+                    <h2 className="order-card__title">Заказ #{order.id}</h2>
+                    <StatusBadge status={order.status} />
                   </div>
-                  <div className="text-sm text-gray-400">
-                    {order.customer_name} {order.customer_surname} • {order.customer_phone}
+                  <div className="order-card__customer">
+                    {order.customer_name} {order.customer_surname}
                   </div>
+                  <div className="order-card__meta">{order.customer_phone}</div>
                 </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-green-400">
-                    {order.total_price?.toLocaleString() || 0} ₽
+
+                <div className="order-card__summary">
+                  <div className="order-card__price">
+                    {(order.total_price || 0).toLocaleString('ru-RU')} ₽
                   </div>
-                  <div className="text-xs text-gray-400">
-                    {new Date(order.date).toLocaleDateString('ru-RU')}
+                  <div className="order-card__meta">
+                    {order.date ? new Date(order.date).toLocaleDateString('ru-RU') : 'Без даты'}
                   </div>
                 </div>
               </div>
 
-              <div className="border-t border-white/10 pt-3 mt-3">
-                <div className="text-sm text-gray-400 mb-2">Товары:</div>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span>{order.oil_name} ({order.volume}мл)</span>
-                    <span>{order.count} шт × {order.price} ₽ = {(order.count * order.price).toLocaleString()} ₽</span>
-                  </div>
+              <div className="order-card__body">
+                <div className="order-card__line">
+                  <span>{order.oil_name}</span>
+                  <span>{order.volume} мл</span>
+                </div>
+                <div className="order-card__line">
+                  <span>{order.count} шт.</span>
+                  <span>{(order.revenue || 0).toLocaleString('ru-RU')} ₽</span>
+                </div>
+                <div className="order-card__line">
+                  <span>Семена</span>
+                  <span>
+                    {(Number(order.seed_weight_kg || 0) * Number(order.count || 0)).toLocaleString('ru-RU', {
+                      maximumFractionDigits: 3,
+                    })}{' '}
+                    кг
+                  </span>
+                </div>
+                <div className="order-card__line">
+                  <span>Прибыль</span>
+                  <span>{(order.profit || 0).toLocaleString('ru-RU')} ₽</span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10">
-                <div className="text-xs text-gray-400">
-                  📍 {order.customer_address}
-                </div>
+              <div className="order-card__footer">
+                <div className="order-card__meta">{order.customer_address}</div>
                 <button
-                  onClick={() => deleteOrder(order.id)}
-                  className="text-red-400 hover:text-red-300 transition-colors text-sm"
+                  type="button"
+                  onClick={() => handleDeleteOrder(order.id)}
+                  className="link-danger"
                 >
-                  🗑️ Удалить
+                  Удалить
                 </button>
               </div>
-            </div>
-          ))
-        )}
-      </div>
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

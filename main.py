@@ -10,7 +10,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse
 from starlette.staticfiles import StaticFiles
 
-from Catalog import add_price_data_to_table, get_oil_catalog
+from Catalog import add_price_data_to_table, get_oil_catalog, load_pricelist_from_pdf
 from Customer import Customer
 from Database import (
     add_expense_entry,
@@ -39,7 +39,6 @@ from Database import (
     select_all_orders,
     update_price_item,
 )
-from ExtractPDFPriceListTable import parse_price_list_pdf
 from OilOrder import OilOrder
 from OrderItem import OrderItem
 
@@ -242,7 +241,7 @@ async def admin_process_upload(request: Request, current_username: str = Depends
                 temp_file.write(file_contents)
 
             clear_price_list()
-            parse_price_list_pdf('tmp/' + pdf_file.filename)
+            load_pricelist_from_pdf('tmp/' + pdf_file.filename)
 
             context = {
                 'request': request,
@@ -540,6 +539,7 @@ async def api_upload_pricelist(request: Request, current_username: str = Depends
                 temp_file.write(file_contents)
 
             clear_price_list()
+            load_pricelist_from_pdf('tmp/' + filename)
             return {"success": True, "message": "Прайс-лист загружен"}
 
         raise HTTPException(status_code=400, detail="Файл не выбран")
@@ -556,6 +556,10 @@ async def api_delete_order(order_id: int, current_username: str = Depends(get_cu
 
 
 @app.get('/')
+@app.get('/orders')
+@app.get('/orders/')
+@app.get('/admin')
+@app.get('/admin/')
 @app.get('/app')
 @app.get('/app/')
 @app.get('/app/{path:path}')

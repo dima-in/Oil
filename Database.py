@@ -143,9 +143,8 @@ async def insert_statuses_to_database():
 def insert_price_list_items(name, price, volume):
     with UseDatabase(config) as cursor:
         cursor.execute(
-            """INSERT INTO price_list (oil_name, volume, price) SELECT %s, %s, %s
-               FROM DUAL
-               WHERE NOT EXISTS (SELECT 1 FROM price_list LIMIT 1)""",
+            """INSERT INTO price_list (oil_name, volume, price)
+               VALUES (%s, %s, %s)""",
             (name, volume, int(price)),
         )
 

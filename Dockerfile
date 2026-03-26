@@ -3,7 +3,7 @@ FROM tiangolo/uvicorn-gunicorn-fastapi:python3.9
 COPY . /app
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir mysql-connector-python fastapi-cors python-multipart
+    pip install --no-cache-dir mysql-connector-python fastapi-cors python-multipart pymupdf
 
 # Копирование собранного frontend в static (правильный путь)
 RUN cp /app/frontend/dist/static/index.css /app/static/ && \

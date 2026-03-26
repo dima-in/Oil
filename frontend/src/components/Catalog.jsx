@@ -5,6 +5,15 @@ import { api } from '../lib/api'
 import { buildCartItems, buildProductIndex, calculateCartTotal, groupCatalogItems } from '../lib/catalog'
 import { INITIAL_CUSTOMER_FORM, STATUS_OPTIONS } from '../lib/constants'
 
+const PRODUCT_IMAGE_ALIASES = {
+  'кунжут нешлифованный': 'кунжут не шлифованый',
+}
+
+function getProductImageSrc(productName) {
+  const imageName = PRODUCT_IMAGE_ALIASES[productName] || productName
+  return `/static/images/${encodeURIComponent(imageName)}.jpg`
+}
+
 function ProductCard({ group, getQuantity, onQuantityChange }) {
   return (
     <article className="product-card">
@@ -12,7 +21,7 @@ function ProductCard({ group, getQuantity, onQuantityChange }) {
         <div className="product-card__head">
           <div className="product-card__media">
             <img
-              src={`/static/images/${encodeURIComponent(group.name)}.jpg`}
+              src={getProductImageSrc(group.name)}
               alt={group.name}
               className="product-card__image"
               onError={(event) => {

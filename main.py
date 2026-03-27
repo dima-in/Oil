@@ -1,5 +1,6 @@
+import math
 import secrets
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
@@ -17,15 +18,18 @@ from Database import (
     add_price_item,
     add_production_batch,
     clear_price_list,
+    delete_production_profile,
     create_tables,
     delete_expense_entry,
     delete_order_dy_id,
     delete_price,
     delete_production_batch,
+    get_batch_counts_by_date,
     get_all_prices,
     get_batch_analytics,
     get_customer_by_phone,
     list_expense_entries,
+    list_production_profiles,
     list_production_batches,
     get_price_item,
     get_profit_summary,
@@ -38,6 +42,7 @@ from Database import (
     save_status,
     select_all_orders,
     update_price_item,
+    upsert_production_profile,
 )
 from OilOrder import OilOrder
 from OrderItem import OrderItem
@@ -84,6 +89,92 @@ def default_analytics_range():
     today = date.today()
     start = today.replace(day=1)
     return start, today
+
+
+def _schedule_batch_dates(batch_count, target_date, daily_batch_limit, occupied_counts):
+    if batch_count <= 0:
+        return []
+
+    planned_dates = []
+    cursor_date = target_date
+    used_counts = dict(occupied_counts)
+
+    while len(planned_dates) < batch_count:
+        key = cursor_date.isoformat()
+        used_today = used_counts.get(key, 0)
+        free_slots = max(daily_batch_limit - used_today, 0)
+
+        if free_slots > 0:
+            to_assign = min(free_slots, batch_count - len(planned_dates))
+            planned_dates.extend([key] * to_assign)
+            used_counts[key] = used_today + to_assign
+
+        cursor_date -= timedelta(days=1)
+
+    return sorted(planned_dates)
+
+
+def _build_order_production_plan(order_items, shipping_date, profiles_by_oil, occupied_counts):
+    grouped = {}
+    for item in order_items:
+        plan_item = grouped.setdefault(item['oil_name'], {
+            'oil_name': item['oil_name'],
+            'total_volume_ml': 0,
+            'bottles': [],
+        })
+        plan_item['total_volume_ml'] += int(item['volume']) * int(item['count'])
+        plan_item['bottles'].append({
+            'volume': int(item['volume']),
+            'count': int(item['count']),
+        })
+
+    plan = []
+    planning_counts = dict(occupied_counts)
+    target_date = shipping_date or date.today()
+
+    for oil_name in sorted(grouped.keys()):
+        item = grouped[oil_name]
+        profile = profiles_by_oil.get(oil_name)
+        bottles = sorted(item['bottles'], key=lambda bottle: bottle['volume'])
+        profile_ready = bool(
+            profile
+            and float(profile.get('batch_seed_weight_kg', 0) or 0) > 0
+            and float(profile.get('yield_percent', 0) or 0) > 0
+        )
+
+        output_per_batch_ml = 0
+        batches_needed = 0
+        suggested_dates = []
+        daily_batch_limit = int(profile.get('daily_batch_limit', 3) or 3) if profile else 3
+
+        if profile_ready:
+            output_per_batch_ml = float(profile['batch_seed_weight_kg']) * float(profile['yield_percent']) * 10
+            if output_per_batch_ml > 0:
+                batches_needed = math.ceil(item['total_volume_ml'] / output_per_batch_ml)
+                suggested_dates = _schedule_batch_dates(
+                    batches_needed,
+                    target_date,
+                    daily_batch_limit,
+                    planning_counts,
+                )
+                for scheduled_date in suggested_dates:
+                    planning_counts[scheduled_date] = planning_counts.get(scheduled_date, 0) + 1
+
+        plan.append({
+            'oil_name': oil_name,
+            'total_volume_ml': item['total_volume_ml'],
+            'bottles': bottles,
+            'profile_id': profile.get('id') if profile else None,
+            'profile_ready': profile_ready,
+            'batch_seed_weight_kg': float(profile.get('batch_seed_weight_kg', 0) or 0) if profile else 0,
+            'yield_percent': float(profile.get('yield_percent', 0) or 0) if profile else 0,
+            'output_per_batch_ml': output_per_batch_ml,
+            'batches_needed': batches_needed,
+            'daily_batch_limit': daily_batch_limit,
+            'suggested_dates': suggested_dates,
+        })
+
+    return plan
 
 
 @app.post('/create-order')
@@ -276,9 +367,12 @@ async def api_get_catalog():
 async def api_get_orders(current_username: str = Depends(get_current_username)):
     await create_tables()
     orders = select_all_orders()
-    result = []
+    profiles_by_oil = {profile['oil_name']: profile for profile in list_production_profiles()}
+    occupied_counts = get_batch_counts_by_date()
+    grouped_orders = {}
+
     for row in orders:
-        result.append({
+        order = grouped_orders.setdefault(row[0], {
             "id": row[0],
             "customer_id": row[1],
             "date": str(row[2]) if row[2] else None,
@@ -289,6 +383,9 @@ async def api_get_orders(current_username: str = Depends(get_current_username)):
             "customer_surname": row[7],
             "customer_phone": row[8],
             "customer_address": row[9],
+            "items": [],
+        })
+        order["items"].append({
             "oil_name": row[10],
             "volume": row[11],
             "count": row[12],
@@ -299,6 +396,18 @@ async def api_get_orders(current_username: str = Depends(get_current_username)):
             "revenue": row[17],
             "profit": row[18],
         })
+
+    result = []
+    for order in grouped_orders.values():
+        shipping_date = parse_date_or_none(order['shipping_date'])
+        order['production_plan'] = _build_order_production_plan(
+            order['items'],
+            shipping_date,
+            profiles_by_oil,
+            occupied_counts,
+        )
+        result.append(order)
+
     return result
 
 
@@ -484,6 +593,41 @@ async def api_admin_production_batches(
 ):
     await create_tables()
     return list_production_batches(parse_date_or_none(date_from), parse_date_or_none(date_to))
+
+
+@app.get('/api/admin/production-profiles')
+async def api_admin_production_profiles(current_username: str = Depends(get_current_username)):
+    await create_tables()
+    return list_production_profiles()
+
+
+@app.post('/api/admin/production-profiles')
+async def api_upsert_production_profile(
+    profile_data: dict,
+    current_username: str = Depends(get_current_username),
+):
+    await create_tables()
+    oil_name = (profile_data.get('oil_name') or '').strip()
+    if not oil_name:
+        raise HTTPException(status_code=400, detail='oil_name is required')
+
+    upsert_production_profile(
+        oil_name,
+        float(profile_data.get('batch_seed_weight_kg', 0) or 0),
+        float(profile_data.get('yield_percent', 0) or 0),
+        int(profile_data.get('daily_batch_limit', 3) or 3),
+        profile_data.get('note'),
+    )
+    return {'success': True}
+
+
+@app.delete('/api/admin/production-profiles/{profile_id}')
+async def api_delete_production_profile(
+    profile_id: int,
+    current_username: str = Depends(get_current_username),
+):
+    delete_production_profile(profile_id)
+    return {'success': True}
 
 
 @app.post('/api/admin/production-batches')

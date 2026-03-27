@@ -106,6 +106,15 @@ async def create_tables():
                           note VARCHAR(255) NULL
                           )""")
 
+        cursor.execute("""CREATE TABLE IF NOT EXISTS production_profiles (
+                          id INT PRIMARY KEY AUTO_INCREMENT,
+                          oil_name VARCHAR(100) NOT NULL UNIQUE,
+                          batch_seed_weight_kg FLOAT NOT NULL DEFAULT 0,
+                          yield_percent FLOAT NOT NULL DEFAULT 0,
+                          daily_batch_limit INT NOT NULL DEFAULT 3,
+                          note VARCHAR(255) NULL
+                          )""")
+
         _add_column_if_missing(cursor, 'price_list', 'seed_weight_kg', 'FLOAT NOT NULL DEFAULT 0')
         _add_column_if_missing(cursor, 'price_list', 'seed_price_per_kg', 'FLOAT NOT NULL DEFAULT 0')
 
@@ -427,6 +436,76 @@ def list_production_batches(date_from=None, date_to=None):
             }
             for row in cursor.fetchall()
         ]
+
+
+def list_production_profiles():
+    with UseDatabase(config) as cursor:
+        cursor.execute(
+            """SELECT
+                    id,
+                    oil_name,
+                    batch_seed_weight_kg,
+                    yield_percent,
+                    daily_batch_limit,
+                    note
+               FROM production_profiles
+               ORDER BY oil_name ASC"""
+        )
+        return [
+            {
+                'id': row[0],
+                'oil_name': row[1],
+                'batch_seed_weight_kg': row[2],
+                'yield_percent': row[3],
+                'daily_batch_limit': row[4],
+                'note': row[5],
+            }
+            for row in cursor.fetchall()
+        ]
+
+
+def upsert_production_profile(oil_name, batch_seed_weight_kg, yield_percent, daily_batch_limit, note):
+    with UseDatabase(config) as cursor:
+        cursor.execute(
+            """INSERT INTO production_profiles (
+                    oil_name, batch_seed_weight_kg, yield_percent, daily_batch_limit, note
+               ) VALUES (%s, %s, %s, %s, %s)
+               ON DUPLICATE KEY UPDATE
+                    batch_seed_weight_kg = VALUES(batch_seed_weight_kg),
+                    yield_percent = VALUES(yield_percent),
+                    daily_batch_limit = VALUES(daily_batch_limit),
+                    note = VALUES(note)""",
+            (oil_name, batch_seed_weight_kg, yield_percent, daily_batch_limit, note),
+        )
+        return cursor.lastrowid
+
+
+def delete_production_profile(profile_id):
+    with UseDatabase(config) as cursor:
+        cursor.execute("""DELETE FROM production_profiles WHERE id = %s""", (profile_id,))
+
+
+def get_batch_counts_by_date(date_to=None):
+    filters = []
+    params = []
+    if date_to:
+        filters.append("batch_date <= %s")
+        params.append(date_to)
+
+    where_clause = f"WHERE {' AND '.join(filters)}" if filters else ''
+
+    with UseDatabase(config) as cursor:
+        cursor.execute(
+            f"""SELECT batch_date, COUNT(*)
+                FROM production_batches
+                {where_clause}
+                GROUP BY batch_date""",
+            tuple(params),
+        )
+        return {
+            str(row[0]) if row[0] else None: int(row[1] or 0)
+            for row in cursor.fetchall()
+        }
 
 
 def add_production_batch(

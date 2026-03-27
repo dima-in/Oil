@@ -1,26 +1,26 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 
-function defaultRange() {
+function todayString() {
   const today = new Date()
   const year = today.getFullYear()
   const month = String(today.getMonth() + 1).padStart(2, '0')
   const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function defaultRange() {
   return {
-    dateFrom: `${year}-${month}-01`,
-    dateTo: `${year}-${month}-${day}`,
+    dateFrom: `${todayString().slice(0, 8)}01`,
+    dateTo: todayString(),
     period: 'month',
     dailyBatchLimit: 3,
   }
 }
 
 function defaultExpenseForm() {
-  const today = new Date()
-  const year = today.getFullYear()
-  const month = String(today.getMonth() + 1).padStart(2, '0')
-  const day = String(today.getDate()).padStart(2, '0')
   return {
-    expense_date: `${year}-${month}-${day}`,
+    expense_date: todayString(),
     item_name: '',
     weight_kg: '',
     price_per_kg: '',
@@ -32,12 +32,8 @@ function defaultExpenseForm() {
 }
 
 function defaultBatchForm() {
-  const today = new Date()
-  const year = today.getFullYear()
-  const month = String(today.getMonth() + 1).padStart(2, '0')
-  const day = String(today.getDate()).padStart(2, '0')
   return {
-    batch_date: `${year}-${month}-${day}`,
+    batch_date: todayString(),
     oil_name: '',
     seed_weight_kg: '',
     seed_price_per_kg: '',
@@ -46,6 +42,16 @@ function defaultBatchForm() {
     labor_cost: '',
     packaging_cost: '',
     other_cost: '',
+    note: '',
+  }
+}
+
+function defaultProfileForm() {
+  return {
+    oil_name: '',
+    batch_seed_weight_kg: '',
+    yield_percent: '',
+    daily_batch_limit: '3',
     note: '',
   }
 }
@@ -66,15 +72,21 @@ export default function AdminAnalytics() {
   const [filters, setFilters] = useState(defaultRange)
   const [expenseForm, setExpenseForm] = useState(defaultExpenseForm)
   const [batchForm, setBatchForm] = useState(defaultBatchForm)
-  const [loading, setLoading] = useState(true)
+  const [profileForm, setProfileForm] = useState(defaultProfileForm)
+  const [productionProfiles, setProductionProfiles] = useState([])
   const [analytics, setAnalytics] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function loadAnalytics() {
+    async function loadData() {
       try {
         setLoading(true)
-        const data = await api.getAnalytics(filters)
-        setAnalytics(data)
+        const [analyticsData, profiles] = await Promise.all([
+          api.getAnalytics(filters),
+          api.getProductionProfiles(),
+        ])
+        setAnalytics(analyticsData)
+        setProductionProfiles(profiles)
       } catch (error) {
         alert(`Ошибка загрузки аналитики: ${error.message}`)
       } finally {
@@ -82,18 +94,12 @@ export default function AdminAnalytics() {
       }
     }
 
-    loadAnalytics()
+    loadData()
   }, [filters])
 
   const totals = analytics?.totals || {
-    orders_count: 0,
     revenue: 0,
-    seed_cost: 0,
-    profit: 0,
-    seed_weight_kg: 0,
-    extra_expense: 0,
     net_profit: 0,
-    purchased_weight_kg: 0,
   }
 
   const batchAnalytics = analytics?.batch_analytics || {
@@ -103,47 +109,41 @@ export default function AdminAnalytics() {
       sold_volume_ml: 0,
       remaining_volume_ml: 0,
       batch_cost: 0,
-      allocated_revenue: 0,
       realized_profit: 0,
     },
     batches: [],
     daily_batches: [],
-    daily_batch_limit: filters.dailyBatchLimit,
   }
 
-  const handleAddExpense = async (event) => {
+  const refresh = () => setFilters((previous) => ({ ...previous }))
+
+  const handleSaveProfile = async (event) => {
     event.preventDefault()
     try {
-      const weight = Number(expenseForm.weight_kg || 0)
-      const price = Number(expenseForm.price_per_kg || 0)
-      const goodsTotal =
-        expenseForm.goods_total === '' ? weight * price : Number(expenseForm.goods_total || 0)
-
-      await api.addExpense({
-        ...expenseForm,
-        weight_kg: weight,
-        price_per_kg: price,
-        goods_total: goodsTotal,
-        delivery_cost: Number(expenseForm.delivery_cost || 0),
-        carsharing_cost: Number(expenseForm.carsharing_cost || 0),
+      await api.saveProductionProfile({
+        oil_name: profileForm.oil_name.trim(),
+        batch_seed_weight_kg: Number(profileForm.batch_seed_weight_kg || 0),
+        yield_percent: Number(profileForm.yield_percent || 0),
+        daily_batch_limit: Number(profileForm.daily_batch_limit || 3),
+        note: profileForm.note.trim(),
       })
-      setExpenseForm(defaultExpenseForm())
-      setFilters((previous) => ({ ...previous }))
+      setProfileForm(defaultProfileForm())
+      refresh()
     } catch (error) {
-      alert(`Ошибка сохранения расхода: ${error.message}`)
+      alert(`Ошибка сохранения профиля: ${error.message}`)
     }
   }
 
-  const handleDeleteExpense = async (id) => {
-    if (!window.confirm('Удалить запись расхода?')) {
+  const handleDeleteProfile = async (id) => {
+    if (!window.confirm('Удалить производственный профиль?')) {
       return
     }
 
     try {
-      await api.deleteExpense(id)
-      setFilters((previous) => ({ ...previous }))
+      await api.deleteProductionProfile(id)
+      refresh()
     } catch (error) {
-      alert(`Ошибка удаления расхода: ${error.message}`)
+      alert(`Ошибка удаления профиля: ${error.message}`)
     }
   }
 
@@ -168,7 +168,7 @@ export default function AdminAnalytics() {
         other_cost: Number(batchForm.other_cost || 0),
       })
       setBatchForm(defaultBatchForm())
-      setFilters((previous) => ({ ...previous }))
+      refresh()
     } catch (error) {
       alert(`Ошибка сохранения закладки: ${error.message}`)
     }
@@ -181,9 +181,45 @@ export default function AdminAnalytics() {
 
     try {
       await api.deleteProductionBatch(id)
-      setFilters((previous) => ({ ...previous }))
+      refresh()
     } catch (error) {
       alert(`Ошибка удаления закладки: ${error.message}`)
+    }
+  }
+
+  const handleAddExpense = async (event) => {
+    event.preventDefault()
+    try {
+      const weight = Number(expenseForm.weight_kg || 0)
+      const price = Number(expenseForm.price_per_kg || 0)
+      const goodsTotal =
+        expenseForm.goods_total === '' ? weight * price : Number(expenseForm.goods_total || 0)
+
+      await api.addExpense({
+        ...expenseForm,
+        weight_kg: weight,
+        price_per_kg: price,
+        goods_total: goodsTotal,
+        delivery_cost: Number(expenseForm.delivery_cost || 0),
+        carsharing_cost: Number(expenseForm.carsharing_cost || 0),
+      })
+      setExpenseForm(defaultExpenseForm())
+      refresh()
+    } catch (error) {
+      alert(`Ошибка сохранения расхода: ${error.message}`)
+    }
+  }
+
+  const handleDeleteExpense = async (id) => {
+    if (!window.confirm('Удалить запись расхода?')) {
+      return
+    }
+
+    try {
+      await api.deleteExpense(id)
+      refresh()
+    } catch (error) {
+      alert(`Ошибка удаления расхода: ${error.message}`)
     }
   }
 
@@ -195,9 +231,10 @@ export default function AdminAnalytics() {
     <div className="page-stack">
       <div className="section-head">
         <div>
-          <h2 className="section-head__title">Прибыль и закладки</h2>
+          <h2 className="section-head__title">Прибыль и производство</h2>
           <p className="section-head__text">
-            Прибыль считается не только по продажам, но и по производственным закладкам: сырье, процент выхода, полученный объём и продажи из партии по FIFO.
+            Здесь задаются производственные профили масел, фактические закладки и расходы.
+            Профили используются для автоматического расчета количества закладок по заказам.
           </p>
         </div>
       </div>
@@ -206,7 +243,7 @@ export default function AdminAnalytics() {
         className="analytics-filters analytics-filters--wide"
         onSubmit={(event) => {
           event.preventDefault()
-          setFilters((previous) => ({ ...previous }))
+          refresh()
         }}
       >
         <select
@@ -235,7 +272,9 @@ export default function AdminAnalytics() {
           min="1"
           max="24"
           value={filters.dailyBatchLimit}
-          onChange={(event) => setFilters((prev) => ({ ...prev, dailyBatchLimit: Number(event.target.value) || 1 }))}
+          onChange={(event) =>
+            setFilters((prev) => ({ ...prev, dailyBatchLimit: Number(event.target.value) || 1 }))
+          }
           className="ios-input"
           placeholder="Лимит закладок в день"
         />
@@ -253,6 +292,97 @@ export default function AdminAnalytics() {
         <MetricCard label="Остаток в закладках" value={(batchAnalytics.totals.remaining_volume_ml || 0).toLocaleString('ru-RU')} suffix=" мл" />
         <MetricCard label="Себестоимость закладок" value={(batchAnalytics.totals.batch_cost || 0).toLocaleString('ru-RU')} suffix=" ₽" />
         <MetricCard label="Реализованная прибыль по закладкам" value={(batchAnalytics.totals.realized_profit || 0).toLocaleString('ru-RU')} suffix=" ₽" />
+      </div>
+
+      <div className="section-head">
+        <div>
+          <h3 className="section-head__title">Производственные профили</h3>
+          <p className="section-head__text">
+            Один профиль на одно масло: стандартный вес закладки, процент выхода и лимит закладок в день.
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSaveProfile} className="editor-grid editor-grid--profiles">
+        <input
+          type="text"
+          placeholder="Масло"
+          value={profileForm.oil_name}
+          onChange={(event) => setProfileForm((prev) => ({ ...prev, oil_name: event.target.value }))}
+          className="ios-input"
+          required
+        />
+        <input
+          type="number"
+          step="0.001"
+          placeholder="Вес закладки, кг"
+          value={profileForm.batch_seed_weight_kg}
+          onChange={(event) =>
+            setProfileForm((prev) => ({ ...prev, batch_seed_weight_kg: event.target.value }))
+          }
+          className="ios-input"
+          required
+        />
+        <input
+          type="number"
+          step="0.01"
+          placeholder="Выход, %"
+          value={profileForm.yield_percent}
+          onChange={(event) => setProfileForm((prev) => ({ ...prev, yield_percent: event.target.value }))}
+          className="ios-input"
+          required
+        />
+        <input
+          type="number"
+          min="1"
+          max="24"
+          placeholder="Лимит в день"
+          value={profileForm.daily_batch_limit}
+          onChange={(event) => setProfileForm((prev) => ({ ...prev, daily_batch_limit: event.target.value }))}
+          className="ios-input"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Комментарий"
+          value={profileForm.note}
+          onChange={(event) => setProfileForm((prev) => ({ ...prev, note: event.target.value }))}
+          className="ios-input"
+        />
+        <button type="submit" className="ios-button success">
+          Сохранить профиль
+        </button>
+      </form>
+
+      <div className="table-wrap">
+        <table className="price-table">
+          <thead>
+            <tr>
+              <th>Масло</th>
+              <th>Вес закладки, кг</th>
+              <th>Выход, %</th>
+              <th>Объем с закладки, мл</th>
+              <th>Лимит в день</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {productionProfiles.map((item) => (
+              <tr key={item.id}>
+                <td>{item.oil_name}</td>
+                <td>{(item.batch_seed_weight_kg || 0).toLocaleString('ru-RU', { maximumFractionDigits: 3 })}</td>
+                <td>{(item.yield_percent || 0).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}</td>
+                <td>{((item.batch_seed_weight_kg || 0) * (item.yield_percent || 0) * 10).toLocaleString('ru-RU', { maximumFractionDigits: 0 })}</td>
+                <td>{item.daily_batch_limit}</td>
+                <td>
+                  <button type="button" onClick={() => handleDeleteProfile(item.id)} className="link-danger">
+                    Удалить
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <form onSubmit={handleAddBatch} className="editor-grid editor-grid--batches">

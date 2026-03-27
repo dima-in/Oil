@@ -117,6 +117,19 @@ export const api = {
     const query = params.toString()
     return request(`/admin/production-batches${query ? `?${query}` : ''}`, { auth: true })
   },
+  getProductionProfiles: () => request('/admin/production-profiles', { auth: true }),
+  saveProductionProfile: (payload) =>
+    request('/admin/production-profiles', {
+      method: 'POST',
+      auth: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  deleteProductionProfile: (id) =>
+    request(`/admin/production-profiles/${id}`, {
+      method: 'DELETE',
+      auth: true,
+    }),
   addProductionBatch: (payload) =>
     request('/admin/production-batches', {
       method: 'POST',

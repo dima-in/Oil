@@ -623,6 +623,14 @@ button {
     auto;
 }
 
+.editor-grid--profiles {
+  grid-template-columns:
+    minmax(180px, 1.4fr)
+    repeat(3, minmax(140px, 1fr))
+    minmax(180px, 1.3fr)
+    auto;
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -737,6 +745,55 @@ button {
 
 .metric-card__value {
   font-size: 1.4rem;
+}
+
+.production-plan {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.production-plan__title {
+  color: var(--accent-strong);
+  font-size: 0.92rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.production-plan__list {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.production-plan__card {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: grid;
+  gap: 8px;
+}
+
+.production-plan__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.production-plan__meta {
+  color: var(--text-soft);
+  line-height: 1.45;
+}
+
+.production-plan__result {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.production-plan__warning {
+  color: #ffd79d;
 }
 
 @media (max-width: 900px) {

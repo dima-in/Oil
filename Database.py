@@ -117,6 +117,7 @@ async def create_tables():
 
         _add_column_if_missing(cursor, 'price_list', 'seed_weight_kg', 'FLOAT NOT NULL DEFAULT 0')
         _add_column_if_missing(cursor, 'price_list', 'seed_price_per_kg', 'FLOAT NOT NULL DEFAULT 0')
+        _add_column_if_missing(cursor, 'orders', 'note', 'VARCHAR(255) NULL')
 
         _add_column_if_missing(cursor, 'order_details', 'seed_weight_kg', 'FLOAT NOT NULL DEFAULT 0')
         _add_column_if_missing(cursor, 'order_details', 'seed_price_per_kg', 'FLOAT NOT NULL DEFAULT 0')
@@ -208,12 +209,12 @@ async def save_order_details(order_id, product):
         )
 
 
-async def save_order(customer_id, order_date, order, shipping_date, status):
+async def save_order(customer_id, order_date, order, shipping_date, status, note=None):
     with UseDatabase(config) as cursor:
         cursor.execute(
-            """INSERT INTO orders (customer_id, date, shipping_date, total_price, status)
-               VALUES (%s, %s, %s, %s, %s)""",
-            (customer_id, order_date, shipping_date, order.calculate_total_price(), status),
+            """INSERT INTO orders (customer_id, date, shipping_date, total_price, status, note)
+               VALUES (%s, %s, %s, %s, %s, %s)""",
+            (customer_id, order_date, shipping_date, order.calculate_total_price(), status, note),
         )
         return cursor.lastrowid
 
@@ -264,6 +265,38 @@ def select_all_orders():
                JOIN customers ON orders.customer_id = customers.id
                JOIN order_details ON orders.id = order_details.order_id
                ORDER BY orders.date DESC, orders.id DESC, order_details.id ASC"""
+        )
+        return cursor.fetchall()
+
+
+def select_all_orders_for_api():
+    with UseDatabase(config) as cursor:
+        cursor.execute(
+            """SELECT
+                    orders.id,
+                    orders.customer_id,
+                    orders.date,
+                    orders.shipping_date,
+                    orders.total_price,
+                    orders.status,
+                    orders.note,
+                    customers.name,
+                    customers.surname,
+                    customers.phone,
+                    customers.address,
+                    order_details.oil_name,
+                    order_details.volume,
+                    order_details.count,
+                    order_details.price,
+                    order_details.seed_weight_kg,
+                    order_details.seed_price_per_kg,
+                    order_details.seed_cost,
+                    order_details.revenue,
+                    order_details.profit
+               FROM orders
+               JOIN customers ON orders.customer_id = customers.id
+               JOIN order_details ON orders.id = order_details.order_id
+               ORDER BY orders.id DESC"""
         )
         return cursor.fetchall()
 

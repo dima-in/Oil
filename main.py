@@ -41,6 +41,7 @@ from Database import (
     save_order_details,
     save_status,
     select_all_orders,
+    select_all_orders_for_api,
     update_price_item,
     upsert_production_profile,
 )
@@ -366,7 +367,7 @@ async def api_get_catalog():
 @app.get('/api/orders')
 async def api_get_orders(current_username: str = Depends(get_current_username)):
     await create_tables()
-    orders = select_all_orders()
+    orders = select_all_orders_for_api()
     profiles_by_oil = {profile['oil_name']: profile for profile in list_production_profiles()}
     occupied_counts = get_batch_counts_by_date()
     grouped_orders = {}
@@ -379,22 +380,23 @@ async def api_get_orders(current_username: str = Depends(get_current_username)):
             "shipping_date": str(row[3]) if row[3] else None,
             "total_price": row[4],
             "status": row[5],
-            "customer_name": row[6],
-            "customer_surname": row[7],
-            "customer_phone": row[8],
-            "customer_address": row[9],
+            "note": row[6],
+            "customer_name": row[7],
+            "customer_surname": row[8],
+            "customer_phone": row[9],
+            "customer_address": row[10],
             "items": [],
         })
         order["items"].append({
-            "oil_name": row[10],
-            "volume": row[11],
-            "count": row[12],
-            "price": row[13],
-            "seed_weight_kg": row[14],
-            "seed_price_per_kg": row[15],
-            "seed_cost": row[16],
-            "revenue": row[17],
-            "profit": row[18],
+            "oil_name": row[11],
+            "volume": row[12],
+            "count": row[13],
+            "price": row[14],
+            "seed_weight_kg": row[15],
+            "seed_price_per_kg": row[16],
+            "seed_cost": row[17],
+            "revenue": row[18],
+            "profit": row[19],
         })
 
     result = []
@@ -419,15 +421,26 @@ async def api_create_order(request: Request, current_username: str = Depends(get
     data = await request.json()
 
     order_date = datetime.now()
-    name = data.get('name')
-    surname = data.get('surname')
-    phone = data.get('phone')
-    address = data.get('address')
+    name = (data.get('name') or '').strip()
+    surname = (data.get('surname') or '').strip()
+    phone = (data.get('phone') or '').strip()
+    address = (data.get('address') or '').strip()
+    note = (data.get('note') or '').strip() or None
     order_status = int(data.get('status', 0))
     items = data.get('items', [])
-    shipping_date = datetime.strptime(data.get('shipping_date'), '%Y-%m-%d')
+    shipping_date_raw = data.get('shipping_date')
+    shipping_date = (
+        datetime.strptime(shipping_date_raw, '%Y-%m-%d')
+        if shipping_date_raw
+        else datetime.now()
+    )
 
-    existing_customer = await get_customer_by_phone(phone)
+    if not name:
+        raise HTTPException(status_code=400, detail='name is required')
+    if not items:
+        raise HTTPException(status_code=400, detail='items are required')
+
+    existing_customer = await get_customer_by_phone(phone) if phone else None
     if existing_customer is None:
         customer_id = await save_customer(address, name, phone, surname)
     else:
@@ -448,7 +461,7 @@ async def api_create_order(request: Request, current_username: str = Depends(get
         )
         order.add_bottle(product)
 
-    order_id = await save_order(customer_id, order_date, order, shipping_date, order_status)
+    order_id = await save_order(customer_id, order_date, order, shipping_date, order_status, note)
 
     for product in order.order_details:
         await save_order_details(order_id, product)
@@ -700,6 +713,8 @@ async def api_delete_order(order_id: int, current_username: str = Depends(get_cu
 
 
 @app.get('/')
+@app.get('/quick-order')
+@app.get('/quick-order/')
 @app.get('/orders')
 @app.get('/orders/')
 @app.get('/admin')

@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Link, Route, Routes, useLocation } from 'react
 import AdminPanel from './components/AdminPanel'
 import Catalog from './components/Catalog'
 import OrdersView from './components/OrdersView'
+import QuickOrder from './components/QuickOrder'
 import { NAV_ITEMS } from './lib/constants'
 import './index.css'
 
@@ -44,6 +45,7 @@ function AppLayout() {
       <main className="app-shell app-main">
         <Routes>
           <Route path="/" element={<Catalog />} />
+          <Route path="/quick-order" element={<QuickOrder />} />
           <Route path="/orders" element={<OrdersView />} />
           <Route path="/admin" element={<AdminPanel />} />
         </Routes>

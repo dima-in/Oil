@@ -170,6 +170,7 @@ export default function OrdersView() {
                   </div>
                   <div className="order-card__meta">{order.customer_phone}</div>
                   <div className="order-card__meta">{order.customer_address}</div>
+                  {order.note ? <div className="order-card__meta">{order.note}</div> : null}
                 </div>
 
                 <div className="order-card__summary">

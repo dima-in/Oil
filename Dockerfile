@@ -8,7 +8,7 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM tiangolo/uvicorn-gunicorn-fastapi:python3.9
+FROM dockerhub.timeweb.cloud/tiangolo/uvicorn-gunicorn-fastapi:python3.9
 
 WORKDIR /app
 

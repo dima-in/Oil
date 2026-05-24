@@ -37,14 +37,24 @@ export default function UploadPricelist() {
     <div className="page-stack page-stack--compact">
       <div>
         <h2 className="section-head__title">Загрузка прайс-листа</h2>
-        <p className="section-head__text">Поддерживается PDF или CSV. Текущий список будет очищен перед импортом.</p>
+        <p className="section-head__text">
+          Поддерживаются PDF, CSV и XLSX. Текущий список будет очищен перед импортом.
+        </p>
       </div>
 
       <form onSubmit={handleUpload} className="form-stack">
         <label className="upload-dropzone">
           <span className="upload-dropzone__title">Выберите файл</span>
-          <span className="upload-dropzone__text">PDF или CSV для обновления ассортимента.</span>
-          <input type="file" name="pdf_file" accept=".pdf,.csv" className="upload-dropzone__input" required />
+          <span className="upload-dropzone__text">
+            PDF, CSV или XLSX для обновления ассортимента.
+          </span>
+          <input
+            type="file"
+            name="pdf_file"
+            accept=".pdf,.csv,.xlsx"
+            className="upload-dropzone__input"
+            required
+          />
         </label>
 
         {error ? <div className="notice notice--error">{error}</div> : null}

@@ -805,6 +805,106 @@ button {
   gap: 18px;
 }
 
+.quick-calendar {
+  display: grid;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.quick-calendar__top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.quick-calendar__title {
+  margin: 0;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.quick-calendar__selected {
+  margin: 4px 0 0;
+  color: var(--text-soft);
+  text-align: center;
+}
+
+.quick-calendar__nav {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.quick-calendar__weekdays,
+.quick-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quick-calendar__weekdays {
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.quick-calendar__day {
+  position: relative;
+  min-height: 58px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  font: inherit;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.quick-calendar__day--muted {
+  color: rgba(245, 239, 229, 0.35);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.quick-calendar__day--today {
+  border-color: rgba(255, 203, 129, 0.45);
+}
+
+.quick-calendar__day--selected {
+  color: #21170c;
+  border-color: transparent;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.65), transparent 34%),
+    linear-gradient(135deg, #ffcf86, #d79a4f);
+}
+
+.quick-calendar__date {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.quick-calendar__badge {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  color: #21170c;
+  background: #f5efe5;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
 .quick-order-form,
 .quick-order-lines {
   display: grid;
@@ -978,6 +1078,45 @@ button {
 
   .quick-order-line__summary {
     justify-items: stretch;
+  }
+
+  .quick-calendar {
+    margin-inline: -2px;
+  }
+
+  .quick-calendar__top {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .quick-calendar__top > div {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .quick-calendar__nav {
+    grid-row: 2;
+  }
+
+  .quick-calendar__weekdays,
+  .quick-calendar__grid {
+    gap: 5px;
+  }
+
+  .quick-calendar__day {
+    min-height: 48px;
+    border-radius: 14px;
+  }
+
+  .quick-calendar__date {
+    font-size: 0.95rem;
+  }
+
+  .quick-calendar__badge {
+    right: 4px;
+    bottom: 4px;
+    min-width: 18px;
+    height: 18px;
+    font-size: 0.68rem;
   }
 
   .quick-order-submit-button {

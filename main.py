@@ -1,6 +1,7 @@
 import math
 import secrets
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
@@ -329,16 +330,17 @@ async def admin_process_upload(request: Request, current_username: str = Depends
 
         if pdf_file and pdf_file.filename:
             file_contents = await pdf_file.read()
-            with open('tmp/' + pdf_file.filename, 'wb') as temp_file:
+            filename = Path(pdf_file.filename).name.replace(' ', '_')
+            with open('tmp/' + filename, 'wb') as temp_file:
                 temp_file.write(file_contents)
 
             clear_price_list()
-            load_pricelist_from_pdf('tmp/' + pdf_file.filename)
+            loaded_count = load_pricelist_from_pdf('tmp/' + filename)
 
             context = {
                 'request': request,
                 'title': "Загрузка завершена",
-                'message': "Прайс-лист успешно загружен!"
+                'message': f"Прайс-лист успешно загружен: {loaded_count} позиций."
             }
             return templates.TemplateResponse('admin_upload.html', context)
 
@@ -691,13 +693,13 @@ async def api_upload_pricelist(request: Request, current_username: str = Depends
 
         if pdf_file and pdf_file.filename:
             file_contents = await pdf_file.read()
-            filename = pdf_file.filename.replace(' ', '_')
+            filename = Path(pdf_file.filename).name.replace(' ', '_')
             with open('tmp/' + filename, 'wb') as temp_file:
                 temp_file.write(file_contents)
 
             clear_price_list()
-            load_pricelist_from_pdf('tmp/' + filename)
-            return {"success": True, "message": "Прайс-лист загружен"}
+            loaded_count = load_pricelist_from_pdf('tmp/' + filename)
+            return {"success": True, "message": f"Прайс-лист загружен: {loaded_count} позиций"}
 
         raise HTTPException(status_code=400, detail="Файл не выбран")
     except Exception as error:

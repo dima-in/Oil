@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import PageHeader from './PageHeader'
 import { api } from '../lib/api'
 
+const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+
 function createEmptyLine(defaultOilName = '', defaultVolume = '') {
   return {
     id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -9,6 +11,43 @@ function createEmptyLine(defaultOilName = '', defaultVolume = '') {
     volume: defaultVolume,
     quantity: 1,
   }
+}
+
+function toDateKey(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function parseDateKey(value) {
+  const [year, month, day] = String(value).slice(0, 10).split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+function monthTitle(date) {
+  return date.toLocaleDateString('ru-RU', {
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+function buildCalendarDays(monthDate) {
+  const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)
+  const firstWeekday = (firstDay.getDay() + 6) % 7
+  const start = new Date(firstDay)
+  start.setDate(firstDay.getDate() - firstWeekday)
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(start)
+    date.setDate(start.getDate() + index)
+    return {
+      date,
+      key: toDateKey(date),
+      isCurrentMonth: date.getMonth() === monthDate.getMonth(),
+      isToday: toDateKey(date) === toDateKey(new Date()),
+    }
+  })
 }
 
 function normalizeCatalog(items) {
@@ -46,8 +85,22 @@ function getVariant(groups, oilName, volume) {
     ?.variants.find((variant) => Number(variant.volume) === Number(volume))
 }
 
+function getOrderDateKey(order) {
+  if (!order.shipping_date) {
+    return null
+  }
+  return String(order.shipping_date).slice(0, 10)
+}
+
 export default function QuickOrder() {
+  const todayKey = toDateKey(new Date())
   const [catalogGroups, setCatalogGroups] = useState([])
+  const [calendarOrders, setCalendarOrders] = useState({})
+  const [selectedDate, setSelectedDate] = useState(todayKey)
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const today = new Date()
+    return new Date(today.getFullYear(), today.getMonth(), 1)
+  })
   const [form, setForm] = useState({
     name: '',
     phone: '',
@@ -61,15 +114,28 @@ export default function QuickOrder() {
   useEffect(() => {
     let cancelled = false
 
-    async function fetchCatalog() {
+    async function fetchInitialData() {
       try {
-        const data = await api.getCatalog()
+        const [catalog, orders] = await Promise.all([
+          api.getCatalog(),
+          api.getOrders().catch(() => []),
+        ])
         if (cancelled) {
           return
         }
 
-        const groups = normalizeCatalog(data)
+        const groups = normalizeCatalog(catalog)
+        const ordersByDate = orders.reduce((accumulator, order) => {
+          const key = getOrderDateKey(order)
+          if (!key) {
+            return accumulator
+          }
+          accumulator[key] = (accumulator[key] || 0) + 1
+          return accumulator
+        }, {})
+
         setCatalogGroups(groups)
+        setCalendarOrders(ordersByDate)
         if (groups.length > 0) {
           setLines([getDefaultLine(groups)])
         }
@@ -84,12 +150,22 @@ export default function QuickOrder() {
       }
     }
 
-    fetchCatalog()
+    fetchInitialData()
 
     return () => {
       cancelled = true
     }
   }, [])
+
+  const calendarDays = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth])
+
+  const selectedDateLabel = useMemo(() => {
+    return parseDateKey(selectedDate).toLocaleDateString('ru-RU', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    })
+  }, [selectedDate])
 
   const items = useMemo(() => {
     return lines
@@ -165,6 +241,15 @@ export default function QuickOrder() {
     })
   }
 
+  const changeMonth = (step) => {
+    setVisibleMonth((previous) => new Date(previous.getFullYear(), previous.getMonth() + step, 1))
+  }
+
+  const selectDate = (dateKey) => {
+    setSelectedDate(dateKey)
+    setNotice(null)
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault()
 
@@ -180,6 +265,7 @@ export default function QuickOrder() {
         name: form.name.trim(),
         phone: form.phone.trim(),
         note: form.note.trim(),
+        shipping_date: selectedDate,
         items,
       })
 
@@ -189,9 +275,13 @@ export default function QuickOrder() {
         note: '',
       })
       setLines([getDefaultLine(catalogGroups)])
+      setCalendarOrders((previous) => ({
+        ...previous,
+        [selectedDate]: (previous[selectedDate] || 0) + 1,
+      }))
       setNotice({
         type: 'success',
-        text: `Заказ #${response.order_id} создан`,
+        text: `Заказ #${response.order_id} создан на ${selectedDateLabel}`,
       })
     } catch (error) {
       setNotice({
@@ -210,9 +300,9 @@ export default function QuickOrder() {
   return (
     <form className="page-stack quick-order-page" onSubmit={handleSubmit}>
       <PageHeader
-        eyebrow="Быстрое оформление"
-        title="Быстрый заказ"
-        description="Форма для записи заказа с телефона: минимум полей, быстрый выбор масел и фиксированная кнопка создания."
+        eyebrow="Быстрая запись"
+        title="Календарь заказов"
+        description="Выберите день в календаре и сразу внесите заказ. Интерфейс рассчитан на работу с телефона."
       />
 
       {notice ? (
@@ -221,11 +311,62 @@ export default function QuickOrder() {
         </div>
       ) : null}
 
+      <section className="section-card quick-calendar">
+        <div className="quick-calendar__top">
+          <button type="button" className="quick-calendar__nav" onClick={() => changeMonth(-1)}>
+            Назад
+          </button>
+          <div>
+            <h2 className="quick-calendar__title">{monthTitle(visibleMonth)}</h2>
+            <p className="quick-calendar__selected">Выбрано: {selectedDateLabel}</p>
+          </div>
+          <button type="button" className="quick-calendar__nav" onClick={() => changeMonth(1)}>
+            Вперед
+          </button>
+        </div>
+
+        <div className="quick-calendar__weekdays">
+          {WEEKDAYS.map((weekday) => (
+            <span key={weekday}>{weekday}</span>
+          ))}
+        </div>
+
+        <div className="quick-calendar__grid">
+          {calendarDays.map((day) => {
+            const orderCount = calendarOrders[day.key] || 0
+            const className = [
+              'quick-calendar__day',
+              day.isCurrentMonth ? '' : 'quick-calendar__day--muted',
+              day.isToday ? 'quick-calendar__day--today' : '',
+              day.key === selectedDate ? 'quick-calendar__day--selected' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')
+
+            return (
+              <button
+                type="button"
+                key={day.key}
+                className={className}
+                onClick={() => selectDate(day.key)}
+              >
+                <span className="quick-calendar__date">{day.date.getDate()}</span>
+                {orderCount > 0 ? (
+                  <span className="quick-calendar__badge">{orderCount}</span>
+                ) : null}
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
       <section className="section-card quick-order-section">
         <div className="section-head">
           <div>
             <h2 className="section-head__title">Клиент</h2>
-            <p className="section-head__text">Имя обязательно, телефон можно оставить пустым.</p>
+            <p className="section-head__text">
+              Заказ будет записан на {selectedDateLabel}. Имя обязательно, телефон можно оставить пустым.
+            </p>
           </div>
         </div>
 
@@ -355,7 +496,9 @@ export default function QuickOrder() {
       <div className="quick-order-submit-bar">
         <div className="app-shell quick-order-submit-bar__inner">
           <div>
-            <div className="cart-bar__label">Позиций: {items.length}, бутылок: {totalCount}</div>
+            <div className="cart-bar__label">
+              {selectedDateLabel}: {items.length} поз., {totalCount} бут.
+            </div>
             <div className="cart-bar__total">{totalPrice.toLocaleString('ru-RU')} ₽</div>
           </div>
           <button type="submit" className="ios-button success quick-order-submit-button" disabled={!isValid || submitting}>

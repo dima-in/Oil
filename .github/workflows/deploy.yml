@@ -37,6 +37,7 @@ jobs:
   deploy:
     name: Deploy to server
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     needs: frontend-build
 
     steps:
@@ -48,6 +49,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           script_stop: true
+          command_timeout: 40m
           script: |
             set -e
 

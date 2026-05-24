@@ -1,15 +1,23 @@
+FROM dockerhub.timeweb.cloud/library/node:20-alpine AS frontend-build
+
+WORKDIR /frontend
+
+COPY frontend/package*.json ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
 FROM tiangolo/uvicorn-gunicorn-fastapi:python3.9
 
+WORKDIR /app
+
 COPY . /app
+COPY --from=frontend-build /frontend/dist/static/index.css /app/static/index.css
+COPY --from=frontend-build /frontend/dist/static/index.js /app/static/index.js
 
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir mysql-connector-python fastapi-cors python-multipart pymupdf
-
-# Копирование собранного frontend в static (правильный путь)
-RUN cp /app/frontend/dist/static/index.css /app/static/ && \
-    cp /app/frontend/dist/static/index.js /app/static/
-
-WORKDIR /app
 
 EXPOSE 8000
 

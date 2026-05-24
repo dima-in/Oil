@@ -1,6 +1,12 @@
 # Автодеплой
 
-Деплой настроен через GitHub Actions: каждый push в ветку `master` проверяет сборку frontend и затем по SSH обновляет проект на сервере командой `docker compose up -d --build --remove-orphans`.
+Деплой настроен через GitHub Actions:
+
+- GitHub Actions собирает Docker-образ приложения.
+- Образ публикуется в GitHub Container Registry: `ghcr.io/dima-in/oil-web:latest`.
+- Сервер по SSH делает `docker compose pull web` и `docker compose up -d --no-build --remove-orphans`.
+
+Сервер больше не собирает приложение сам, а только скачивает готовый образ.
 
 ## GitHub Secrets
 
@@ -11,6 +17,8 @@
 - `DEPLOY_PORT` - SSH-порт, обычно `22`.
 - `DEPLOY_SSH_KEY` - приватный SSH-ключ, у которого есть доступ на сервер.
 - `DEPLOY_PATH` - путь к проекту на сервере, например `/opt/oil`.
+
+`GITHUB_TOKEN` создавать вручную не нужно. GitHub Actions выдает его автоматически для публикации и скачивания образа из GHCR.
 
 ## Подготовка сервера
 

@@ -183,7 +183,7 @@ def _build_order_production_plan(order_items, shipping_date, profiles_by_oil, oc
 async def create_order(request: Request, current_username: str = Depends(get_current_username)):
     await create_tables()
     await insert_statuses_to_database()
-    await add_price_data_to_table()
+    add_price_data_to_table()
     form_data = await request.form()
 
     order_date = datetime.now()

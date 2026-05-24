@@ -138,6 +138,11 @@ export default function QuickOrder() {
         setCalendarOrders(ordersByDate)
         if (groups.length > 0) {
           setLines([getDefaultLine(groups)])
+        } else {
+          setNotice({
+            type: 'error',
+            text: 'Прайс-лист пустой. Загрузите PDF, CSV или XLSX в админке, затем вернитесь к заказу.',
+          })
         }
       } catch (error) {
         if (!cancelled) {
@@ -195,7 +200,7 @@ export default function QuickOrder() {
     [items],
   )
 
-  const isValid = form.name.trim() && items.length > 0
+  const isValid = catalogGroups.length > 0 && form.name.trim() && items.length > 0
 
   const updateLine = (lineId, patch) => {
     setLines((previous) =>
@@ -423,7 +428,11 @@ export default function QuickOrder() {
                     className="ios-input"
                     value={line.oilName}
                     onChange={(event) => updateLine(line.id, { oilName: event.target.value })}
+                    disabled={catalogGroups.length === 0}
                   >
+                    {catalogGroups.length === 0 ? (
+                      <option value="">Нет позиций в прайсе</option>
+                    ) : null}
                     {catalogGroups.map((group) => (
                       <option key={group.oilName} value={group.oilName}>
                         {group.oilName}
@@ -435,7 +444,9 @@ export default function QuickOrder() {
                     className="ios-input"
                     value={line.volume}
                     onChange={(event) => updateLine(line.id, { volume: Number(event.target.value) })}
+                    disabled={variants.length === 0}
                   >
+                    {variants.length === 0 ? <option value="">Нет объемов</option> : null}
                     {variants.map((variant) => (
                       <option key={`${line.oilName}_${variant.volume}`} value={variant.volume}>
                         {variant.volume} мл

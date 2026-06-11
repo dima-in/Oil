@@ -514,6 +514,135 @@ async def api_get_catalog():
     return [{"oil_name": item[0], "volume": item[1], "price": item[2]} for item in catalog]
 
 
+@app.get('/api/analytics/customers')
+def get_customer_analytics(start_date: Optional[str] = None, end_date: Optional[str] = None):
+    """
+    Возвращает аналитику по клиентам: выручка, количество заказов.
+    Использует только существующие колонки из schema ground truth.
+    """
+    from Database import UseDatabase, config
+    
+    query = """
+        SELECT 
+            c.id,
+            c.name,
+            c.surname,
+            COUNT(DISTINCT o.id) as orders_count,
+            COALESCE(SUM(od.price * od.count), 0) as total_revenue
+        FROM customers c
+        LEFT JOIN orders o ON c.id = o.customer_id
+        LEFT JOIN order_details od ON o.id = od.order_id
+    """
+    
+    params = []
+    if start_date or end_date:
+        query += " WHERE 1=1"
+        if start_date:
+            query += " AND o.date >= %s"
+            params.append(start_date)
+        if end_date:
+            query += " AND o.date <= %s"
+            params.append(end_date)
+    
+    query += " GROUP BY c.id, c.name, c.surname ORDER BY total_revenue DESC"
+    
+    with UseDatabase(config) as cursor:
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+    
+    return [
+        {
+            'id': row[0],
+            'name': row[1],
+            'surname': row[2],
+            'orders_count': row[3],
+            'total_revenue': float(row[4]),
+        }
+        for row in rows
+    ]
+
+
+@app.get('/api/analytics/products')
+def get_product_analytics(start_date: Optional[str] = None, end_date: Optional[str] = None):
+    """
+    Возвращает аналитику по товарам: проданные единицы, выручка.
+    Использует только существующие колонки из schema ground truth.
+    """
+    from Database import UseDatabase, config
+    
+    query = """
+        SELECT 
+            od.oil_name,
+            od.volume,
+            SUM(od.count) as units_sold,
+            SUM(od.price * od.count) as total_revenue
+        FROM order_details od
+        JOIN orders o ON od.order_id = o.id
+    """
+    
+    params = []
+    if start_date or end_date:
+        query += " WHERE 1=1"
+        if start_date:
+            query += " AND o.date >= %s"
+            params.append(start_date)
+        if end_date:
+            query += " AND o.date <= %s"
+            params.append(end_date)
+    
+    query += " GROUP BY od.oil_name, od.volume ORDER BY total_revenue DESC"
+    
+    with UseDatabase(config) as cursor:
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+    
+    return [
+        {
+            'oil_name': row[0],
+            'volume': row[1],
+            'units_sold': int(row[2]),
+            'total_revenue': float(row[3]),
+        }
+        for row in rows
+    ]
+
+
+@app.get('/api/analytics/summary')
+def get_summary_analytics(start_date: Optional[str] = None, end_date: Optional[str] = None):
+    """
+    Возвращает общую аналитику: суммарная выручка, количество заказов.
+    Использует только существующие колонки из schema ground truth.
+    """
+    from Database import UseDatabase, config
+    
+    query = """
+        SELECT 
+            COUNT(DISTINCT o.id) as total_orders,
+            COALESCE(SUM(od.price * od.count), 0) as total_revenue
+        FROM orders o
+        LEFT JOIN order_details od ON o.id = od.order_id
+    """
+    
+    params = []
+    if start_date or end_date:
+        query += " WHERE 1=1"
+        if start_date:
+            query += " AND o.date >= %s"
+            params.append(start_date)
+        if end_date:
+            query += " AND o.date <= %s"
+            params.append(end_date)
+    
+    with UseDatabase(config) as cursor:
+        cursor.execute(query, tuple(params))
+        row = cursor.fetchone()
+    
+    return {
+        'total_orders': row[0] if row else 0,
+        'total_revenue': float(row[1]) if row else 0.0,
+    }
+
+
 @app.get('/api/orders')
 async def api_get_orders(current_username: str = Depends(get_current_username)):
     await create_tables()

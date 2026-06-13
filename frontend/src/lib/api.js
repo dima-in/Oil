@@ -143,3 +143,60 @@ export const api = {
       auth: true,
     }),
 }
+
+export const fetchCustomerAnalytics = async (params = {}) => {
+  const { period, dateFrom, dateTo } = params
+  const queryParams = new URLSearchParams()
+  if (period) queryParams.set('period', period)
+  if (dateFrom) queryParams.set('date_from', dateFrom)
+  if (dateTo) queryParams.set('date_to', dateTo)
+  const query = queryParams.toString()
+  const url = `${API_BASE}/api/analytics/customers${query ? `?${query}` : ''}`
+  const response = await fetch(url, {
+    headers: {
+      Authorization: basicAuthHeader(),
+    },
+  })
+  if (!response.ok) {
+    throw new Error(`Failed to fetch customer analytics: ${response.status}`)
+  }
+  return await response.json()
+}
+
+export const fetchProductAnalytics = async (params = {}) => {
+  const { period, dateFrom, dateTo } = params
+  const queryParams = new URLSearchParams()
+  if (period) queryParams.set('period', period)
+  if (dateFrom) queryParams.set('date_from', dateFrom)
+  if (dateTo) queryParams.set('date_to', dateTo)
+  const query = queryParams.toString()
+  const url = `${API_BASE}/api/analytics/products${query ? `?${query}` : ''}`
+  const response = await fetch(url, {
+    headers: {
+      Authorization: basicAuthHeader(),
+    },
+  })
+  if (!response.ok) {
+    throw new Error(`Failed to fetch product analytics: ${response.status}`)
+  }
+  return await response.json()
+}
+
+export const fetchSummaryAnalytics = async (params = {}) => {
+  const { period, dateFrom, dateTo } = params
+  const queryParams = new URLSearchParams()
+  if (period) queryParams.set('period', period)
+  if (dateFrom) queryParams.set('date_from', dateFrom)
+  if (dateTo) queryParams.set('date_to', dateTo)
+  const query = queryParams.toString()
+  const url = `${API_BASE}/api/analytics/summary${query ? `?${query}` : ''}`
+  const response = await fetch(url, {
+    headers: {
+      Authorization: basicAuthHeader(),
+    },
+  })
+  if (!response.ok) {
+    throw new Error(`Failed to fetch summary analytics: ${response.status}`)
+  }
+  return await response.json()
+}

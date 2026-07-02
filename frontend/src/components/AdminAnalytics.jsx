@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
+import { fetchCustomerAnalytics, fetchProductAnalytics, fetchSummaryAnalytics } from '../lib/api'
 
 function todayString() {
   const today = new Date()
@@ -76,6 +77,10 @@ export default function AdminAnalytics() {
   const [productionProfiles, setProductionProfiles] = useState([])
   const [analytics, setAnalytics] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [customerAnalytics, setCustomerAnalytics] = useState([])
+  const [productAnalytics, setProductAnalytics] = useState([])
+  const [summaryAnalytics, setSummaryAnalytics] = useState(null)
+  const [analyticsError, setAnalyticsError] = useState('')
 
   useEffect(() => {
     async function loadData() {
@@ -94,7 +99,26 @@ export default function AdminAnalytics() {
       }
     }
 
+    // Per-customer and per-product revenue from the new /api/analytics/* endpoints.
+    // Isolated from loadData so a failure here does not break the existing view.
+    async function loadEntityAnalytics() {
+      try {
+        setAnalyticsError('')
+        const [customers, products, summary] = await Promise.all([
+          fetchCustomerAnalytics(filters),
+          fetchProductAnalytics(filters),
+          fetchSummaryAnalytics(filters),
+        ])
+        setCustomerAnalytics(Array.isArray(customers) ? customers : [])
+        setProductAnalytics(Array.isArray(products) ? products : [])
+        setSummaryAnalytics(summary || null)
+      } catch (error) {
+        setAnalyticsError(error.message)
+      }
+    }
+
     loadData()
+    loadEntityAnalytics()
   }, [filters])
 
   const totals = analytics?.totals || {
@@ -292,6 +316,84 @@ export default function AdminAnalytics() {
         <MetricCard label="Остаток в закладках" value={(batchAnalytics.totals.remaining_volume_ml || 0).toLocaleString('ru-RU')} suffix=" мл" />
         <MetricCard label="Себестоимость закладок" value={(batchAnalytics.totals.batch_cost || 0).toLocaleString('ru-RU')} suffix=" ₽" />
         <MetricCard label="Реализованная прибыль по закладкам" value={(batchAnalytics.totals.realized_profit || 0).toLocaleString('ru-RU')} suffix=" ₽" />
+      </div>
+
+      <div className="section-head">
+        <div>
+          <h3 className="section-head__title">Аналитика по клиентам и товарам</h3>
+          <p className="section-head__text">Выручка за выбранный период (из /api/analytics).</p>
+        </div>
+      </div>
+
+      {analyticsError ? (
+        <div className="state-panel">
+          Не удалось загрузить аналитику по клиентам/товарам: {analyticsError}
+        </div>
+      ) : null}
+
+      {summaryAnalytics ? (
+        <div className="metrics-grid">
+          <MetricCard label="Всего заказов" value={(summaryAnalytics.total_orders || 0).toLocaleString('ru-RU')} />
+          <MetricCard label="Общая выручка" value={(summaryAnalytics.total_revenue || 0).toLocaleString('ru-RU')} suffix=" ₽" />
+        </div>
+      ) : null}
+
+      <h4 className="section-head__title">Выручка по клиентам</h4>
+      <div className="table-wrap">
+        <table className="price-table">
+          <thead>
+            <tr>
+              <th>Клиент</th>
+              <th>Заказов</th>
+              <th>Выручка, ₽</th>
+            </tr>
+          </thead>
+          <tbody>
+            {customerAnalytics.length === 0 ? (
+              <tr>
+                <td colSpan={3}>Нет данных за период</td>
+              </tr>
+            ) : (
+              customerAnalytics.map((row) => (
+                <tr key={row.id}>
+                  <td>{`${row.name || ''} ${row.surname || ''}`.trim() || '—'}</td>
+                  <td>{row.orders_count || 0}</td>
+                  <td>{(row.total_revenue || 0).toLocaleString('ru-RU')}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <h4 className="section-head__title">Выручка по товарам</h4>
+      <div className="table-wrap">
+        <table className="price-table">
+          <thead>
+            <tr>
+              <th>Масло</th>
+              <th>Объем</th>
+              <th>Продано</th>
+              <th>Выручка, ₽</th>
+            </tr>
+          </thead>
+          <tbody>
+            {productAnalytics.length === 0 ? (
+              <tr>
+                <td colSpan={4}>Нет данных за период</td>
+              </tr>
+            ) : (
+              productAnalytics.map((row, index) => (
+                <tr key={`${row.oil_name}-${row.volume}-${index}`}>
+                  <td>{row.oil_name}</td>
+                  <td>{row.volume}</td>
+                  <td>{row.units_sold || 0}</td>
+                  <td>{(row.total_revenue || 0).toLocaleString('ru-RU')}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       <div className="section-head">

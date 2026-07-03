@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 import os
 from pathlib import Path
 from typing import Optional
+import requests
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -512,6 +513,148 @@ async def api_get_catalog():
     await create_tables()
     catalog = get_oil_catalog()
     return [{"oil_name": item[0], "volume": item[1], "price": item[2]} for item in catalog]
+
+
+@app.post('/analytics/assistant')
+def analytics_assistant(question: str, username: str = Depends(get_current_username)):
+    """
+    Эндпоинт для встроенного ассистента-аналитика.
+    Принимает вопрос на естественном языке и возвращает ответ от LLM на основе данных из БД.
+    """
+    openrouter_api_key = os.getenv('OPENROUTER_API_KEY')
+    if not openrouter_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail='OPENROUTER_API_KEY not configured'
+        )
+    
+    # Собираем контекст из БД (read-only)
+    db_config = {
+        'host': os.getenv('DB_HOST', '127.0.0.1'),
+        'port': int(os.getenv('DB_PORT', 3306)),
+        'user': os.getenv('DB_USER', 'oilorder_admin'),
+        'password': os.getenv('DB_PASSWORD', 'oilpasswd'),
+        'database': os.getenv('DB_NAME', 'oilordersDB'),
+        'charset': 'utf8'
+    }
+    
+    from UseDatabase import UseDatabase
+    
+    context_data = {}
+    
+    try:
+        with UseDatabase(db_config) as cursor:
+            # Получаем статистику по заказам
+            cursor.execute("""
+                SELECT COUNT(*) as total_orders, 
+                       COALESCE(SUM(od.price * od.count), 0) as total_revenue
+                FROM orders o
+                LEFT JOIN order_details od ON o.id = od.order_id
+            """)
+            orders_stats = cursor.fetchone()
+            context_data['orders'] = {
+                'total_count': orders_stats[0] if orders_stats else 0,
+                'total_revenue': float(orders_stats[1]) if orders_stats else 0.0
+            }
+            
+            # Получаем топ клиентов
+            cursor.execute("""
+                SELECT c.name, c.surname, COUNT(o.id) as order_count
+                FROM customers c
+                LEFT JOIN orders o ON c.id = o.customer_id
+                GROUP BY c.id, c.name, c.surname
+                ORDER BY order_count DESC
+                LIMIT 5
+            """)
+            top_customers = cursor.fetchall()
+            context_data['top_customers'] = [
+                {'name': row[0], 'surname': row[1], 'orders': row[2]}
+                for row in top_customers
+            ]
+            
+            # Получаем статистику по товарам
+            cursor.execute("""
+                SELECT od.oil_name, od.volume, SUM(od.count) as units_sold
+                FROM order_details od
+                GROUP BY od.oil_name, od.volume
+                ORDER BY units_sold DESC
+                LIMIT 5
+            """)
+            top_products = cursor.fetchall()
+            context_data['top_products'] = [
+                {'oil_name': row[0], 'volume': row[1], 'units_sold': int(row[2])}
+                for row in top_products
+            ]
+            
+            # Получаем статистику по расходам
+            cursor.execute("""
+                SELECT COUNT(*) as total_expenses, COALESCE(SUM(amount), 0) as total_amount
+                FROM expense_entries
+            """)
+            expenses_stats = cursor.fetchone()
+            context_data['expenses'] = {
+                'total_count': expenses_stats[0] if expenses_stats else 0,
+                'total_amount': float(expenses_stats[1]) if expenses_stats else 0.0
+            }
+            
+            # Получаем статистику по производству
+            cursor.execute("""
+                SELECT COUNT(*) as total_batches
+                FROM production_batches
+            """)
+            production_stats = cursor.fetchone()
+            context_data['production'] = {
+                'total_batches': production_stats[0] if production_stats else 0
+            }
+    
+    except Exception as db_error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Database error: {str(db_error)}'
+        )
+    
+    # Формируем промпт для LLM
+    system_prompt = f"""
+Ты — бизнес-аналитик для компании по производству масел. 
+Отвечай на вопросы владельца на основе следующих данных:
+
+Заказы: {context_data['orders']['total_count']} заказов, выручка {context_data['orders']['total_revenue']} руб.
+Топ клиенты: {context_data['top_customers']}
+Топ товары: {context_data['top_products']}
+Расходы: {context_data['expenses']['total_count']} записей, сумма {context_data['expenses']['total_amount']} руб.
+Производство: {context_data['production']['total_batches']} партий.
+
+Отвечай кратко, по делу, на русском языке.
+"""
+    
+    # Вызываем OpenRouter API
+    try:
+        response = requests.post(
+            'https://openrouter.ai/api/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {openrouter_api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': 'openai/gpt-3.5-turbo',
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': question}
+                ]
+            },
+            timeout=30
+        )
+        response.raise_for_status()
+        llm_response = response.json()
+        answer = llm_response['choices'][0]['message']['content']
+        
+        return {'answer': answer}
+    
+    except requests.exceptions.RequestException as api_error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f'OpenRouter API error: {str(api_error)}'
+        )
 
 
 @app.get('/api/analytics/customers')

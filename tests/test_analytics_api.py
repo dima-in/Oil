@@ -1,5 +1,6 @@
 import ast
 from pathlib import Path
+import importlib.util
 
 
 def _call_name(node):
@@ -83,6 +84,66 @@ def _arg_names(func):
 
 
 MAIN_PATH = Path(__file__).resolve().parent.parent / "main.py"
+
+
+def test_analytics_assistant_endpoint_exists():
+    tree = ast.parse(MAIN_PATH.read_text(encoding="utf-8"))
+    func = _func(tree, "analytics_assistant")
+    assert func is not None
+    assert _arg_names(func) == ["question", "username"]
+
+    decorators = [d for d in func.decorator_list if isinstance(d, ast.Call) and _call_name(d.func) == "app.post"]
+    assert len(decorators) == 1
+    assert decorators[0].args
+    assert _str(decorators[0].args[0]) == "/analytics/assistant"
+
+
+def test_analytics_assistant_requires_auth():
+    tree = ast.parse(MAIN_PATH.read_text(encoding="utf-8"))
+    func = _func(tree, "analytics_assistant")
+    assert func is not None
+
+    defaults = list(func.args.defaults)
+    assert len(defaults) == 1
+    default = defaults[0]
+    assert isinstance(default, ast.Call)
+    assert _call_name(default.func) == "Depends"
+    assert len(default.args) == 1
+    assert _call_name(default.args[0]) == "get_current_username"
+
+    username_arg = func.args.args[1]
+    assert username_arg.arg == "username"
+    assert isinstance(username_arg.annotation, ast.Name)
+    assert username_arg.annotation.id == "str"
+
+
+def test_analytics_assistant_returns_answer():
+    tree = ast.parse(MAIN_PATH.read_text(encoding="utf-8"))
+    func = _func(tree, "analytics_assistant")
+    assert func is not None
+
+    question_arg = func.args.args[0]
+    assert question_arg.arg == "question"
+    assert isinstance(question_arg.annotation, ast.Name)
+    assert question_arg.annotation.id == "str"
+
+    env_reads = [
+        node for node in ast.walk(func)
+        if isinstance(node, ast.Call)
+        and _call_name(node.func) == "os.getenv"
+        and node.args
+        and _str(node.args[0]) == "OPENROUTER_API_KEY"
+    ]
+    assert env_reads
+
+    answer_keys = set()
+    for node in ast.walk(func):
+        if isinstance(node, ast.Dict):
+            for key in node.keys:
+                value = _str(key)
+                if value is not None:
+                    answer_keys.add(value)
+    assert "answer" in answer_keys
 
 
 def test_get_customer_analytics_no_dates():

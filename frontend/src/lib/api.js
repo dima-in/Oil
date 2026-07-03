@@ -142,6 +142,13 @@ export const api = {
       method: 'DELETE',
       auth: true,
     }),
+  askAssistant: (question) =>
+    request('/analytics/assistant', {
+      method: 'POST',
+      auth: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question }),
+    }),
 }
 
 export const fetchCustomerAnalytics = async (params = {}) => {

@@ -17,7 +17,7 @@ COPY --from=frontend-build /frontend/dist/static/index.css /app/static/index.css
 COPY --from=frontend-build /frontend/dist/static/index.js /app/static/index.js
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir mysql-connector-python fastapi-cors python-multipart pymupdf
+    pip install --no-cache-dir requests mysql-connector-python fastapi-cors python-multipart pymupdf
 
 EXPOSE 8000
 

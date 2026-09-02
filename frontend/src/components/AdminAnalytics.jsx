@@ -81,6 +81,9 @@ export default function AdminAnalytics() {
   const [productAnalytics, setProductAnalytics] = useState([])
   const [summaryAnalytics, setSummaryAnalytics] = useState(null)
   const [analyticsError, setAnalyticsError] = useState('')
+  const [chatMessages, setChatMessages] = useState([])
+  const [chatInput, setChatInput] = useState('')
+  const [isChatLoading, setIsChatLoading] = useState(false)
 
   useEffect(() => {
     async function loadData() {

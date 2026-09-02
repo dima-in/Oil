@@ -158,7 +158,7 @@ export const fetchCustomerAnalytics = async (params = {}) => {
   if (dateFrom) queryParams.set('date_from', dateFrom)
   if (dateTo) queryParams.set('date_to', dateTo)
   const query = queryParams.toString()
-  const url = `${API_BASE}/api/analytics/customers${query ? `?${query}` : ''}`
+  const url = `${API_BASE}/analytics/customers${query ? `?${query}` : ''}`
   const response = await fetch(url, {
     headers: {
       Authorization: basicAuthHeader(),
@@ -177,7 +177,7 @@ export const fetchProductAnalytics = async (params = {}) => {
   if (dateFrom) queryParams.set('date_from', dateFrom)
   if (dateTo) queryParams.set('date_to', dateTo)
   const query = queryParams.toString()
-  const url = `${API_BASE}/api/analytics/products${query ? `?${query}` : ''}`
+  const url = `${API_BASE}/analytics/products${query ? `?${query}` : ''}`
   const response = await fetch(url, {
     headers: {
       Authorization: basicAuthHeader(),
@@ -196,7 +196,7 @@ export const fetchSummaryAnalytics = async (params = {}) => {
   if (dateFrom) queryParams.set('date_from', dateFrom)
   if (dateTo) queryParams.set('date_to', dateTo)
   const query = queryParams.toString()
-  const url = `${API_BASE}/api/analytics/summary${query ? `?${query}` : ''}`
+  const url = `${API_BASE}/analytics/summary${query ? `?${query}` : ''}`
   const response = await fetch(url, {
     headers: {
       Authorization: basicAuthHeader(),

@@ -515,7 +515,7 @@ async def api_get_catalog():
     return [{"oil_name": item[0], "volume": item[1], "price": item[2]} for item in catalog]
 
 
-@app.post('/analytics/assistant')
+@app.post('/api/analytics/assistant')
 def analytics_assistant(question: str, username: str = Depends(get_current_username)):
     """
     Эндпоинт для встроенного ассистента-аналитика.

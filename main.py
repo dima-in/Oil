@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 import requests
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -516,7 +516,7 @@ async def api_get_catalog():
 
 
 @app.post('/api/analytics/assistant')
-def analytics_assistant(question: str, username: str = Depends(get_current_username)):
+def analytics_assistant(question: str = Body(..., embed=True), username: str = Depends(get_current_username)):
     """
     Эндпоинт для встроенного ассистента-аналитика.
     Принимает вопрос на естественном языке и возвращает ответ от LLM на основе данных из БД.

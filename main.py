@@ -588,7 +588,7 @@ def analytics_assistant(question: str = Body(..., embed=True), username: str = D
             
             # Получаем статистику по расходам
             cursor.execute("""
-                SELECT COUNT(*) as total_expenses, COALESCE(SUM(amount), 0) as total_amount
+                SELECT COUNT(*) as total_expenses, COALESCE(SUM(goods_total + delivery_cost + carsharing_cost), 0) as total_amount
                 FROM expense_entries
             """)
             expenses_stats = cursor.fetchone()
@@ -636,7 +636,7 @@ def analytics_assistant(question: str = Body(..., embed=True), username: str = D
                 'Content-Type': 'application/json'
             },
             json={
-                'model': 'openai/gpt-3.5-turbo',
+                'model': 'openai/gpt-4o-mini',
                 'messages': [
                     {'role': 'system', 'content': system_prompt},
                     {'role': 'user', 'content': question}

@@ -630,13 +630,13 @@ def analytics_assistant(question: str = Body(..., embed=True), username: str = D
     # Вызываем OpenRouter API
     try:
         response = requests.post(
-            'https://openrouter.ai/api/v1/chat/completions',
+            'https://novpnai.ru/v1/chat/completions',
             headers={
                 'Authorization': f'Bearer {openrouter_api_key}',
                 'Content-Type': 'application/json'
             },
             json={
-                'model': 'openai/gpt-4o-mini',
+                'model': 'auto',
                 'messages': [
                     {'role': 'system', 'content': system_prompt},
                     {'role': 'user', 'content': question}

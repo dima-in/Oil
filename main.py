@@ -197,7 +197,7 @@ def generate_sql_from_question(question: str) -> str:
         os.getenv("OIL_LLM_URL", "https://novpnai.ru/v1/chat/completions"),
         json=payload,
         headers=headers,
-        timeout=30,
+        timeout=60,
     )
     if hasattr(response, "raise_for_status"):
         response.raise_for_status()
@@ -715,7 +715,7 @@ def analytics_assistant(question: str = Body(..., embed=True), username: str = D
             detail=f'Ошибка выполнения запроса: {exc}'
         )
 
-    max_rows = 200
+    max_rows = 50
     capped_rows = [list(row) for row in rows[:max_rows]]
 
     # 3) Человекочитаемый ответ строго на основе фактического результата запроса.
@@ -741,7 +741,7 @@ def analytics_assistant(question: str = Body(..., embed=True), username: str = D
                     {'role': 'user', 'content': phrasing_prompt}
                 ]
             },
-            timeout=30
+            timeout=90
         )
         response.raise_for_status()
         answer = response.json()['choices'][0]['message']['content']

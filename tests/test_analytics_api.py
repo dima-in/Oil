@@ -95,7 +95,7 @@ def test_analytics_assistant_endpoint_exists():
     decorators = [d for d in func.decorator_list if isinstance(d, ast.Call) and _call_name(d.func) == "app.post"]
     assert len(decorators) == 1
     assert decorators[0].args
-    assert _str(decorators[0].args[0]) == "/analytics/assistant"
+    assert _str(decorators[0].args[0]) == "/api/analytics/assistant"
 
 
 def test_analytics_assistant_requires_auth():
@@ -104,12 +104,9 @@ def test_analytics_assistant_requires_auth():
     assert func is not None
 
     defaults = list(func.args.defaults)
-    assert len(defaults) == 1
-    default = defaults[0]
-    assert isinstance(default, ast.Call)
-    assert _call_name(default.func) == "Depends"
-    assert len(default.args) == 1
-    assert _call_name(default.args[0]) == "get_current_username"
+    depends_calls = [d for d in defaults if isinstance(d, ast.Call) and _call_name(d.func) == "Depends"]
+    assert len(depends_calls) == 1
+    assert _call_name(depends_calls[0].args[0]) == "get_current_username"
 
     username_arg = func.args.args[1]
     assert username_arg.arg == "username"

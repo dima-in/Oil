@@ -1,9 +1,10 @@
 import math
+import re
 import secrets
 from datetime import date, datetime, timedelta
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 import requests
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, status
@@ -47,9 +48,176 @@ from Database import (
     select_all_orders_for_api,
     update_price_item,
     upsert_production_profile,
+    UseDatabase,
+    config,
 )
+from mysql.connector import Error as DatabaseError
 from OilOrder import OilOrder
 from OrderItem import OrderItem
+
+
+def validate_sql_query(query: str) -> bool:
+    """Return whether *query* is a single, read-only SELECT statement."""
+    if not isinstance(query, str):
+        return False
+
+    stripped_query = query.strip()
+    # Requiring a word boundary prevents values such as ``SELECTED`` from
+    # being treated as a SELECT statement.  Comments before the statement are
+    # deliberately not accepted, so a second statement cannot be hidden in a
+    # comment/prefix accepted by the validator.
+    if not re.match(r"\ASELECT\b", stripped_query, re.IGNORECASE):
+        return False
+    if ";" in stripped_query:
+        return False
+
+    # Ignore quoted literals while looking for write/DDL keywords.  A value
+    # such as 'drop' is data, not an instruction, and must not make a valid
+    # SELECT fail validation.
+    without_literals = re.sub(
+        r"'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"",
+        " ",
+        stripped_query,
+    )
+    # Reject MySQL comments so dangerous tokens cannot be hidden between
+    # keywords (for example, INTO/**/OUTFILE or FOR/**/UPDATE).
+    if re.search(r"--|#|/\*|\*/", without_literals):
+        return False
+
+    forbidden_keywords = (
+        "INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE",
+        "TRUNCATE", "REPLACE", "GRANT", "REVOKE", "CALL", "LOAD",
+    )
+    if any(
+        re.search(r"\b" + keyword + r"\b", without_literals, re.IGNORECASE)
+        for keyword in forbidden_keywords
+    ):
+        return False
+
+    # MySQL permits SELECT forms that can still mutate state or write files.
+    # Treat those as non-read-only even though they start with SELECT.
+    unsafe_select_clauses = (
+        r"\bINTO\s+(?:OUTFILE|DUMPFILE)\b",
+        r"\bFOR\s+UPDATE\b",
+        r"\bLOCK\s+IN\s+SHARE\s+MODE\b",
+    )
+    return not any(
+        re.search(pattern, without_literals, re.IGNORECASE)
+        for pattern in unsafe_select_clauses
+    )
+
+
+def execute_safe_sql(query: str, params: tuple = None):
+    """Execute a validated read-only query and return plain tuple rows."""
+    if not validate_sql_query(query):
+        raise ValueError("Only a single read-only SELECT query is allowed")
+    try:
+        with UseDatabase(config) as cursor:
+            if params is None:
+                cursor.execute(query)
+            else:
+                cursor.execute(query, params)
+            return cursor.fetchall()
+    except DatabaseError as exc:
+        raise RuntimeError("Database query failed") from exc
+
+
+def get_database_schema():
+    """Return the static database schema used as context for analytics SQL."""
+    return {
+        'customers': {
+            'columns': ['id', 'name', 'surname', 'phone', 'address'],
+        },
+        'orders': {
+            'columns': ['id', 'customer_id', 'date', 'shipping_date', 'total_price', 'status'],
+        },
+        'order_details': {
+            'columns': ['id', 'order_id', 'oil_name', 'volume', 'count', 'price'],
+        },
+        'price_list': {
+            'columns': ['id', 'oil_name', 'volume', 'price'],
+        },
+        'expense_entries': {
+            'columns': [
+                'id', 'expense_date', 'item_name', 'weight_kg', 'price_per_kg',
+                'goods_total', 'delivery_cost', 'carsharing_cost', 'note',
+            ],
+        },
+        'production_batches': {
+            'columns': [
+                'id', 'batch_date', 'oil_name', 'seed_weight_kg', 'seed_price_per_kg',
+                'yield_percent', 'output_volume_ml', 'labor_cost', 'packaging_cost',
+                'other_cost', 'note',
+            ],
+        },
+        'production_profiles': {
+            'columns': ['id', 'oil_name', 'batch_seed_weight_kg', 'yield_percent', 'daily_batch_limit', 'note'],
+        },
+        'order_statuses': {
+            'columns': ['id', 'name'],
+        },
+        'statuses_list': {
+            'columns': ['id', 'order_id', 'order_status', 'name', 'datetime'],
+        },
+        'relationships': [
+            {'from': 'orders.status', 'to': 'order_statuses.id'},
+            {'from': 'orders.customer_id', 'to': 'customers.id'},
+            {'from': 'order_details.order_id', 'to': 'orders.id'},
+        ],
+    }
+
+
+def generate_sql_from_question(question: str) -> str:
+    """Generate and validate one read-only SQL query for a natural-language question."""
+    if not isinstance(question, str) or not question.strip():
+        raise ValueError("Question must be a non-empty string")
+
+    schema = get_database_schema()
+    prompt = (
+        "You translate the user's question into exactly one MySQL SELECT query. "
+        "Use only the tables and columns in the schema. Do not include markdown, "
+        "comments, parameters, or a trailing semicolon. The query must be read-only.\n\n"
+        f"Database schema: {schema}\n\nUser question: {question.strip()}"
+    )
+    payload = {
+        "model": os.getenv("OIL_SQL_MODEL", "auto"),
+        "messages": [
+            {"role": "system", "content": "Return only SQL."},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0,
+    }
+    headers = {"Content-Type": "application/json"}
+    # Reuse the same LLM gateway as the deployed assistant (novpnai.ru via OPENROUTER_API_KEY).
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    response = requests.post(
+        os.getenv("OIL_LLM_URL", "https://novpnai.ru/v1/chat/completions"),
+        json=payload,
+        headers=headers,
+        timeout=30,
+    )
+    if hasattr(response, "raise_for_status"):
+        response.raise_for_status()
+    data = response.json()
+    try:
+        raw_sql = data["choices"][0]["message"]["content"]
+        if not isinstance(raw_sql, str):
+            raise TypeError("SQL content must be text")
+        sql_query = raw_sql.strip()
+        if sql_query.startswith("```") and sql_query.endswith("```"):
+            sql_query = sql_query[3:-3].strip()
+            if sql_query.lower().startswith("sql"):
+                sql_query = sql_query[3:].lstrip()
+    except (KeyError, IndexError, TypeError, AttributeError) as exc:
+        raise ValueError("LLM response did not contain SQL") from exc
+
+    if not validate_sql_query(sql_query):
+        raise ValueError("LLM returned an unsafe or invalid SQL query")
+    return sql_query
+
 
 app = FastAPI()
 
@@ -518,8 +686,9 @@ async def api_get_catalog():
 @app.post('/api/analytics/assistant')
 def analytics_assistant(question: str = Body(..., embed=True), username: str = Depends(get_current_username)):
     """
-    Эндпоинт для встроенного ассистента-аналитика.
-    Принимает вопрос на естественном языке и возвращает ответ от LLM на основе данных из БД.
+    Ассистент-аналитик (text-to-SQL). По вопросу на естественном языке строит read-only
+    SQL по реальной схеме БД, безопасно выполняет его (только SELECT) и формулирует ответ.
+    Видит всю базу на чтение, а не фиксированный набор метрик.
     """
     openrouter_api_key = os.getenv('OPENROUTER_API_KEY')
     if not openrouter_api_key:
@@ -527,134 +696,62 @@ def analytics_assistant(question: str = Body(..., embed=True), username: str = D
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail='OPENROUTER_API_KEY not configured'
         )
-    
-    # Собираем контекст из БД (read-only)
-    db_config = {
-        'host': os.getenv('DB_HOST', '127.0.0.1'),
-        'port': int(os.getenv('DB_PORT', 3306)),
-        'user': os.getenv('DB_USER', 'oilorder_admin'),
-        'password': os.getenv('DB_PASSWORD', 'oilpasswd'),
-        'database': os.getenv('DB_NAME', 'oilordersDB'),
-        'charset': 'utf8'
-    }
-    
-    from UseDatabase import UseDatabase
-    
-    context_data = {}
-    
+
+    # 1) Естественный язык -> проверенный read-only SELECT (грунтовка по get_database_schema()).
     try:
-        with UseDatabase(db_config) as cursor:
-            # Получаем статистику по заказам
-            cursor.execute("""
-                SELECT COUNT(*) as total_orders, 
-                       COALESCE(SUM(od.price * od.count), 0) as total_revenue
-                FROM orders o
-                LEFT JOIN order_details od ON o.id = od.order_id
-            """)
-            orders_stats = cursor.fetchone()
-            context_data['orders'] = {
-                'total_count': orders_stats[0] if orders_stats else 0,
-                'total_revenue': float(orders_stats[1]) if orders_stats else 0.0
-            }
-            
-            # Получаем топ клиентов
-            cursor.execute("""
-                SELECT c.name, c.surname, COUNT(o.id) as order_count
-                FROM customers c
-                LEFT JOIN orders o ON c.id = o.customer_id
-                GROUP BY c.id, c.name, c.surname
-                ORDER BY order_count DESC
-                LIMIT 5
-            """)
-            top_customers = cursor.fetchall()
-            context_data['top_customers'] = [
-                {'name': row[0], 'surname': row[1], 'orders': row[2]}
-                for row in top_customers
-            ]
-            
-            # Получаем статистику по товарам
-            cursor.execute("""
-                SELECT od.oil_name, od.volume, SUM(od.count) as units_sold
-                FROM order_details od
-                GROUP BY od.oil_name, od.volume
-                ORDER BY units_sold DESC
-                LIMIT 5
-            """)
-            top_products = cursor.fetchall()
-            context_data['top_products'] = [
-                {'oil_name': row[0], 'volume': row[1], 'units_sold': int(row[2])}
-                for row in top_products
-            ]
-            
-            # Получаем статистику по расходам
-            cursor.execute("""
-                SELECT COUNT(*) as total_expenses, COALESCE(SUM(goods_total + delivery_cost + carsharing_cost), 0) as total_amount
-                FROM expense_entries
-            """)
-            expenses_stats = cursor.fetchone()
-            context_data['expenses'] = {
-                'total_count': expenses_stats[0] if expenses_stats else 0,
-                'total_amount': float(expenses_stats[1]) if expenses_stats else 0.0
-            }
-            
-            # Получаем статистику по производству
-            cursor.execute("""
-                SELECT COUNT(*) as total_batches
-                FROM production_batches
-            """)
-            production_stats = cursor.fetchone()
-            context_data['production'] = {
-                'total_batches': production_stats[0] if production_stats else 0
-            }
-    
-    except Exception as db_error:
+        sql_query = generate_sql_from_question(question)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail='Не удалось построить безопасный SQL-запрос под этот вопрос. Переформулируйте.'
+        )
+
+    # 2) Безопасное выполнение (validate_sql_query внутри execute_safe_sql гарантирует SELECT-only).
+    try:
+        rows = execute_safe_sql(sql_query)
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Database error: {str(db_error)}'
+            detail=f'Ошибка выполнения запроса: {exc}'
         )
-    
-    # Формируем промпт для LLM
-    system_prompt = f"""
-Ты — бизнес-аналитик для компании по производству масел. 
-Отвечай на вопросы владельца на основе следующих данных:
 
-Заказы: {context_data['orders']['total_count']} заказов, выручка {context_data['orders']['total_revenue']} руб.
-Топ клиенты: {context_data['top_customers']}
-Топ товары: {context_data['top_products']}
-Расходы: {context_data['expenses']['total_count']} записей, сумма {context_data['expenses']['total_amount']} руб.
-Производство: {context_data['production']['total_batches']} партий.
+    max_rows = 200
+    capped_rows = [list(row) for row in rows[:max_rows]]
 
-Отвечай кратко, по делу, на русском языке.
-"""
-    
-    # Вызываем OpenRouter API
+    # 3) Человекочитаемый ответ строго на основе фактического результата запроса.
+    phrasing_prompt = (
+        'Ты — бизнес-аналитик компании по производству масел. Ответь на вопрос владельца '
+        'КРАТКО и по делу, на русском, ТОЛЬКО на основе результата SQL-запроса ниже. '
+        'Не выдумывай данных. Если результат пуст — так и скажи.\n\n'
+        f'Вопрос: {question}\n'
+        f'SQL: {sql_query}\n'
+        f'Результат (до {max_rows} строк, кортежи значений): {capped_rows}'
+    )
     try:
         response = requests.post(
-            'https://novpnai.ru/v1/chat/completions',
+            os.getenv('OIL_LLM_URL', 'https://novpnai.ru/v1/chat/completions'),
             headers={
                 'Authorization': f'Bearer {openrouter_api_key}',
                 'Content-Type': 'application/json'
             },
             json={
-                'model': 'auto',
+                'model': os.getenv('OIL_SQL_MODEL', 'auto'),
                 'messages': [
-                    {'role': 'system', 'content': system_prompt},
-                    {'role': 'user', 'content': question}
+                    {'role': 'system', 'content': 'Отвечай кратко, по делу, на русском.'},
+                    {'role': 'user', 'content': phrasing_prompt}
                 ]
             },
             timeout=30
         )
         response.raise_for_status()
-        llm_response = response.json()
-        answer = llm_response['choices'][0]['message']['content']
-        
-        return {'answer': answer}
-    
+        answer = response.json()['choices'][0]['message']['content']
     except requests.exceptions.RequestException as api_error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f'OpenRouter API error: {str(api_error)}'
+            detail=f'LLM API error: {str(api_error)}'
         )
+
+    return {'answer': answer, 'sql': sql_query, 'rows_count': len(rows)}
 
 
 @app.get('/api/analytics/customers')

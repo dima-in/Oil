@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { BrowserRouter as Router, Link, Route, Routes, useLocation } from 'react-router-dom'
 import AdminPanel from './components/AdminPanel'
 import Catalog from './components/Catalog'
@@ -5,6 +6,28 @@ import OrdersView from './components/OrdersView'
 import QuickOrder from './components/QuickOrder'
 import { NAV_ITEMS } from './lib/constants'
 import './index.css'
+
+function ThemeToggle() {
+  const [theme, setTheme] = useState(
+    () => document.documentElement.getAttribute('data-theme') || 'light',
+  )
+  const toggle = () => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    document.documentElement.setAttribute('data-theme', next)
+    try {
+      localStorage.setItem('oilpress-theme', next)
+    } catch (e) {
+      /* private mode: keep the in-memory choice */
+    }
+  }
+  const label = theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'
+  return (
+    <button type="button" className="theme-toggle" onClick={toggle} title={label} aria-label={label}>
+      {theme === 'dark' ? '☀' : '☾'}
+    </button>
+  )
+}
 
 function Navigation() {
   const location = useLocation()
@@ -32,6 +55,7 @@ function Navigation() {
               <span>{item.shortLabel}</span>
             </Link>
           ))}
+          <ThemeToggle />
         </div>
       </div>
     </nav>

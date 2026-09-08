@@ -24,6 +24,42 @@
   --danger-soft: #fef3f2;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
   --shadow-lg: 0 4px 6px -2px rgba(16, 24, 40, 0.05), 0 12px 16px -4px rgba(16, 24, 40, 0.1);
+  /* theme-aware overlays (flip in dark so hovers/surfaces stay visible) */
+  --wash-1: var(--wash-1);
+  --wash-2: var(--wash-2);
+  --wash-3: var(--wash-3);
+  --accent-wash: var(--accent-wash);
+  --accent-wash-2: var(--accent-wash-2);
+  --nav-bg: var(--nav-bg);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d0f14;
+  --bg-soft: #12151c;
+  --panel: #171a22;
+  --panel-strong: #1c2029;
+  --panel-border: #2a2f3a;
+  --text: #f0f2f6;
+  --text-soft: #aab2c0;
+  --text-muted: #727b8b;
+  --accent: #8b83ff;
+  --accent-strong: #a9a2ff;
+  --accent-soft: #20213e;
+  --success: #4ade80;
+  --success-soft: #0f2619;
+  --warning: #fbbf24;
+  --warning-soft: #2a2110;
+  --danger: #f87171;
+  --danger-soft: #2a1414;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.55);
+  --wash-1: rgba(255, 255, 255, 0.04);
+  --wash-2: rgba(255, 255, 255, 0.07);
+  --wash-3: rgba(255, 255, 255, 0.11);
+  --accent-wash: rgba(139, 131, 255, 0.18);
+  --accent-wash-2: rgba(139, 131, 255, 0.30);
+  --nav-bg: rgba(23, 26, 34, 0.82);
 }
 
 * {
@@ -69,7 +105,7 @@ button {
   top: 0;
   z-index: 100;
   backdrop-filter: blur(20px);
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--nav-bg);
   border-bottom: 1px solid var(--panel-border);
 }
 
@@ -113,7 +149,7 @@ button {
   border-radius: 999px;
   color: var(--text-soft);
   text-decoration: none;
-  background: rgba(16, 24, 40, 0.03);
+  background: var(--wash-1);
   border: 1px solid transparent;
   transition: 0.2s ease;
 }
@@ -121,8 +157,8 @@ button {
 .nav-link:hover,
 .nav-link--active {
   color: var(--text);
-  border-color: rgba(79, 70, 229, 0.24);
-  background: rgba(79, 70, 229, 0.16);
+  border-color: var(--accent-wash-2);
+  background: var(--accent-wash);
 }
 
 .nav-link__icon {
@@ -132,9 +168,30 @@ button {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: rgba(16, 24, 40, 0.06);
+  background: var(--wash-2);
   font-size: 0.68rem;
   letter-spacing: 0.08em;
+}
+
+.theme-toggle {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--wash-1);
+  color: var(--text-soft);
+  font-size: 1.05rem;
+  line-height: 1;
+  transition: 0.2s ease;
+}
+
+.theme-toggle:hover {
+  color: var(--text);
+  background: var(--accent-wash);
+  border-color: var(--accent-wash-2);
 }
 
 .app-main {
@@ -210,7 +267,7 @@ button {
   overflow: hidden;
   border-radius: 24px;
   border: 1px solid var(--panel-border);
-  background: linear-gradient(180deg, rgba(16, 24, 40, 0.02), rgba(16, 24, 40, 0.01));
+  background: linear-gradient(180deg, var(--wash-1), var(--wash-1));
   box-shadow: var(--shadow);
 }
 
@@ -234,7 +291,7 @@ button {
   border-radius: 20px;
   overflow: hidden;
   background:
-    radial-gradient(circle at top, rgba(79, 70, 229, 0.34), transparent 52%),
+    radial-gradient(circle at top, var(--accent-wash-2), transparent 52%),
     linear-gradient(135deg, var(--bg-soft) 0%, var(--bg) 100%);
 }
 
@@ -284,7 +341,7 @@ button {
   gap: 12px;
   padding: 12px 14px;
   border-radius: 18px;
-  background: rgba(16, 24, 40, 0.04);
+  background: var(--wash-1);
 }
 
 .product-variant__details {
@@ -305,13 +362,13 @@ button {
   border: 0;
   border-radius: 999px;
   padding: 10px 14px;
-  background: rgba(79, 70, 229, 0.18);
+  background: var(--accent-wash);
   color: var(--accent-strong);
   white-space: nowrap;
 }
 
 .add-button:hover {
-  background: rgba(79, 70, 229, 0.28);
+  background: var(--accent-wash-2);
 }
 
 .quantity-stepper {
@@ -320,7 +377,7 @@ button {
   gap: 6px;
   padding: 4px;
   border-radius: 999px;
-  background: rgba(16, 24, 40, 0.05);
+  background: var(--wash-1);
 }
 
 .quantity-stepper__button {
@@ -328,13 +385,13 @@ button {
   height: 34px;
   border: 0;
   border-radius: 999px;
-  background: rgba(16, 24, 40, 0.08);
+  background: var(--wash-2);
   color: var(--text);
   font-size: 1rem;
 }
 
 .quantity-stepper__button--primary {
-  background: rgba(79, 70, 229, 0.24);
+  background: var(--accent-wash-2);
   color: var(--accent-strong);
 }
 
@@ -362,14 +419,14 @@ button {
   border: 0;
   border-radius: 999px;
   padding: 12px 18px;
-  background: rgba(79, 70, 229, 0.18);
+  background: var(--accent-wash);
   color: var(--text);
   transition: 0.2s ease;
 }
 
 .ios-button:hover {
   transform: translateY(-1px);
-  background: rgba(79, 70, 229, 0.26);
+  background: var(--accent-wash-2);
 }
 
 .ios-button.success {
@@ -383,7 +440,7 @@ button {
 }
 
 .ios-button.secondary {
-  background: rgba(16, 24, 40, 0.08);
+  background: var(--wash-2);
 }
 
 .ios-button:disabled {
@@ -393,17 +450,17 @@ button {
 
 .ios-input {
   width: 100%;
-  border: 1px solid rgba(16, 24, 40, 0.08);
+  border: 1px solid var(--wash-2);
   border-radius: 16px;
   padding: 13px 15px;
   color: var(--text);
-  background: rgba(16, 24, 40, 0.05);
+  background: var(--wash-1);
 }
 
 .ios-input:focus {
   outline: none;
-  border-color: rgba(79, 70, 229, 0.35);
-  background: rgba(16, 24, 40, 0.08);
+  border-color: var(--accent-wash-2);
+  background: var(--wash-2);
 }
 
 .cart-bar {
@@ -471,7 +528,7 @@ button {
 .order-summary {
   padding: 18px;
   border-radius: 22px;
-  background: rgba(16, 24, 40, 0.04);
+  background: var(--wash-1);
 }
 
 .order-summary__row,
@@ -505,14 +562,14 @@ button {
 .filter-chip {
   border: 1px solid transparent;
   border-radius: 999px;
-  background: rgba(16, 24, 40, 0.04);
+  background: var(--wash-1);
   color: var(--text-soft);
   padding: 10px 14px;
 }
 
 .filter-chip--active {
-  border-color: rgba(79, 70, 229, 0.22);
-  background: rgba(79, 70, 229, 0.16);
+  border-color: var(--accent-wash);
+  background: var(--accent-wash);
   color: var(--text);
 }
 
@@ -572,7 +629,7 @@ button {
   border-radius: 999px;
   padding: 6px 10px;
   font-size: 0.82rem;
-  background: rgba(16, 24, 40, 0.08);
+  background: var(--wash-2);
 }
 
 .status-badge--blue {
@@ -587,7 +644,7 @@ button {
 
 .status-badge--amber {
   color: var(--accent-strong);
-  background: rgba(79, 70, 229, 0.2);
+  background: var(--accent-wash);
 }
 
 .status-badge--red {
@@ -597,7 +654,7 @@ button {
 
 .status-badge--slate {
   color: var(--text-soft);
-  background: rgba(16, 24, 40, 0.06);
+  background: var(--wash-2);
 }
 
 .editor-grid {
@@ -649,7 +706,7 @@ button {
 .price-table td {
   padding: 14px 10px;
   text-align: left;
-  border-bottom: 1px solid rgba(16, 24, 40, 0.06);
+  border-bottom: 1px solid var(--wash-2);
 }
 
 .table-actions {
@@ -688,9 +745,9 @@ button {
   display: grid;
   gap: 8px;
   padding: 22px;
-  border: 1px dashed rgba(16, 24, 40, 0.12);
+  border: 1px dashed var(--wash-3);
   border-radius: 24px;
-  background: rgba(16, 24, 40, 0.03);
+  background: var(--wash-1);
 }
 
 .upload-dropzone__title {
@@ -740,7 +797,7 @@ button {
   padding: 18px;
   border-radius: 20px;
   border: 1px solid var(--panel-border);
-  background: rgba(16, 24, 40, 0.04);
+  background: var(--wash-1);
 }
 
 .metric-card__label {
@@ -774,8 +831,8 @@ button {
 .production-plan__card {
   padding: 14px 16px;
   border-radius: 18px;
-  background: rgba(16, 24, 40, 0.04);
-  border: 1px solid rgba(16, 24, 40, 0.05);
+  background: var(--wash-1);
+  border: 1px solid var(--wash-1);
   display: grid;
   gap: 8px;
 }
@@ -841,7 +898,7 @@ button {
   border: 1px solid var(--panel-border);
   border-radius: 999px;
   color: var(--text);
-  background: rgba(16, 24, 40, 0.05);
+  background: var(--wash-1);
 }
 
 .quick-calendar__weekdays,
@@ -861,24 +918,24 @@ button {
 .quick-calendar__day {
   position: relative;
   min-height: 58px;
-  border: 1px solid rgba(16, 24, 40, 0.07);
+  border: 1px solid var(--wash-2);
   border-radius: 18px;
   display: grid;
   place-items: center;
   color: var(--text);
   font: inherit;
   background:
-    linear-gradient(145deg, rgba(16, 24, 40, 0.07), rgba(16, 24, 40, 0.02));
-  box-shadow: inset 0 1px 0 rgba(16, 24, 40, 0.05);
+    linear-gradient(145deg, var(--wash-2), var(--wash-1));
+  box-shadow: inset 0 1px 0 var(--wash-1);
 }
 
 .quick-calendar__day--muted {
   color: var(--text-muted);
-  background: rgba(16, 24, 40, 0.025);
+  background: var(--wash-1);
 }
 
 .quick-calendar__day--today {
-  border-color: rgba(79, 70, 229, 0.45);
+  border-color: var(--accent-wash-2);
 }
 
 .quick-calendar__day--selected {
@@ -933,8 +990,8 @@ button {
   align-items: start;
   padding: 16px;
   border-radius: 22px;
-  background: rgba(16, 24, 40, 0.04);
-  border: 1px solid rgba(16, 24, 40, 0.06);
+  background: var(--wash-1);
+  border: 1px solid var(--wash-2);
 }
 
 .quick-order-line__index {
@@ -944,7 +1001,7 @@ button {
   display: grid;
   place-items: center;
   color: var(--accent-strong);
-  background: rgba(79, 70, 229, 0.12);
+  background: var(--accent-wash);
 }
 
 .quick-order-line__fields {

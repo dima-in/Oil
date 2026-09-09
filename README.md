@@ -1,6 +1,9 @@
 # OilPress - Магазин масел
 
-Современное веб-приложение для управления заказами масел с дизайном в стиле iOS/macOS.
+Веб-приложение для управления производством и заказами масел: каталог, заказы,
+прайс-лист, аналитика и **AI-ассистент по базе на естественном языке**.
+Чистая профессиональная тема с переключателем светлая/тёмная (индиго-акцент,
+выбор запоминается, тема первого визита — по настройке ОС).
 
 ## Быстрый старт
 
@@ -60,6 +63,33 @@ Oil/
 - `DELETE /api/admin/pricelist/{id}` - Удалить товар
 - `POST /api/admin/pricelist/clear` - Очистить прайс-лист
 - `POST /api/admin/upload-pricelist` - Загрузить PDF/CSV
+
+### AI-ассистент (text-to-SQL)
+- `POST /api/analytics/assistant` - вопрос на естественном языке → ответ по базе.
+  Требует админ-авторизацию. Пайплайн: вопрос → LLM генерирует **только `SELECT`**
+  (валидатор блокирует любые изменяющие/опасные конструкции: INSERT/UPDATE/DELETE/
+  DDL/GRANT/CALL/LOAD, `INTO OUTFILE`, `FOR UPDATE`, ...) → безопасное выполнение
+  (read-only, до 50 строк) → второй вызов LLM формулирует ответ.
+  Тело: `{ "question": "..." }` → `{ "answer", "sql", "rows_count" }`.
+  Ассистент «видит» всю схему (9 таблиц + связи по FOREIGN KEY).
+
+### Admin: Analytics
+- `GET /api/admin/analytics` - сводная аналитика
+- `GET /api/analytics/customers` - аналитика по клиентам
+- `GET /api/analytics/products` - аналитика по товарам
+- `GET /api/analytics/summary` - сводка
+
+### Admin: Expenses & Production
+- `GET|POST /api/admin/expenses`, `DELETE /api/admin/expenses/{id}` - расходы
+- `GET|POST /api/admin/production-profiles`, `DELETE /api/admin/production-profiles/{id}`
+  - профили производства (выход масла, размер закладки, дневной лимит)
+- `GET|POST /api/admin/production-batches`, `DELETE /api/admin/production-batches/{id}` - закладки
+
+## Переменные окружения
+
+| Переменная | Назначение |
+| --- | --- |
+| `OPENROUTER_API_KEY` | Ключ шлюза LLM (novpnai) для AI-ассистента. Без него `/api/analytics/assistant` вернёт ошибку. |
 
 ## Учётные данные
 

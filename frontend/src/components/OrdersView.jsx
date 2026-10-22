@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import PageHeader from './PageHeader'
-import StatusBadge from './StatusBadge'
+import StatusSelect from './StatusSelect'
 import { api } from '../lib/api'
-import { STATUS_MAP } from '../lib/constants'
+import { useDataRefresh } from '../lib/events'
+import { useStatuses } from '../lib/statuses'
 
 function formatBottles(items) {
   return items
@@ -69,13 +71,13 @@ function ProductionPlan({ plan }) {
 export default function OrdersView() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState('open')
+  const [search, setSearch] = useState('')
+  const [searchParams] = useSearchParams()
+  const focusId = Number(searchParams.get('focus')) || null
+  const statuses = useStatuses()
 
-  useEffect(() => {
-    loadOrders()
-  }, [])
-
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     try {
       const data = await api.getOrders()
       setOrders(data)
@@ -84,15 +86,40 @@ export default function OrdersView() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    loadOrders()
+  }, [loadOrders])
+  useDataRefresh(loadOrders)
+
+  // Переход «открыть заказ №N» из помощника или сводки: показываем его, даже если фильтр другой.
+  useEffect(() => {
+    if (!focusId || loading) return
+    setFilter('all')
+    requestAnimationFrame(() =>
+      document.getElementById(`order-${focusId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+    )
+  }, [focusId, loading])
+
+  const roleOf = useCallback(
+    (status) => statuses.find((item) => String(item.id) === String(status))?.role,
+    [statuses],
+  )
 
   const filteredOrders = useMemo(() => {
-    if (filter === 'all') {
-      return orders
-    }
-
-    return orders.filter((order) => String(order.status) === filter)
-  }, [filter, orders])
+    const text = search.trim().toLowerCase()
+    return orders.filter((order) => {
+      if (filter === 'open' && ['done', 'cancelled'].includes(roleOf(order.status))) return false
+      if (filter !== 'all' && filter !== 'open' && String(order.status) !== filter) return false
+      if (!text) return true
+      const haystack = [
+        `№${order.id}`, order.customer_name, order.customer_surname, order.customer_phone, order.note,
+        ...order.items.map((item) => item.oil_name),
+      ].join(' ').toLowerCase()
+      return haystack.includes(text)
+    })
+  }, [filter, orders, roleOf, search])
 
   const filterOptions = useMemo(() => {
     const counts = orders.reduce((accumulator, order) => {
@@ -104,9 +131,17 @@ export default function OrdersView() {
     return Object.entries(counts).map(([status, count]) => ({
       status,
       count,
-      label: STATUS_MAP[status]?.label || status,
+      label: statuses.find((item) => String(item.id) === status)?.name || status,
     }))
-  }, [orders])
+  }, [orders, statuses])
+
+  const openCount = orders.filter((order) => !['done', 'cancelled'].includes(roleOf(order.status))).length
+
+  const handleStatusChanged = (updated) => {
+    setOrders((previous) =>
+      previous.map((order) => (order.id === updated.id ? { ...order, status: updated.status } : order)),
+    )
+  }
 
   const handleDeleteOrder = async (id) => {
     if (!window.confirm(`Удалить заказ #${id}?`)) {
@@ -128,12 +163,31 @@ export default function OrdersView() {
   return (
     <div className="page-stack">
       <PageHeader
-        eyebrow="История"
+        eyebrow="Заказы"
         title="Заказы"
-        description="По каждому заказу видны позиции, прибыль и краткий план производства по маслам."
+        description="Позиции, прибыль и план производства по каждому заказу. Статус меняется прямо в карточке."
+        actions={
+          <Link to="/quick-order" className="ios-button primary">
+            Записать заказ
+          </Link>
+        }
       />
 
-      <div className="filter-row">
+      <input
+        className="ios-input search-input"
+        placeholder="Поиск: №, имя, телефон, масло…"
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+      />
+
+      <div className="filter-row filter-row--start">
+        <button
+          type="button"
+          onClick={() => setFilter('open')}
+          className={filter === 'open' ? 'filter-chip filter-chip--active' : 'filter-chip'}
+        >
+          Открытые ({openCount})
+        </button>
         <button
           type="button"
           onClick={() => setFilter('all')}
@@ -158,15 +212,21 @@ export default function OrdersView() {
       ) : (
         <div className="order-list">
           {filteredOrders.map((order) => (
-            <article key={order.id} className="order-card">
+            <article
+              key={order.id}
+              id={`order-${order.id}`}
+              className={order.id === focusId ? 'order-card order-card--focus' : 'order-card'}
+            >
               <div className="order-card__top">
                 <div>
                   <div className="order-card__title-row">
-                    <h2 className="order-card__title">Заказ #{order.id}</h2>
-                    <StatusBadge status={order.status} />
+                    <h2 className="order-card__title">Заказ №{order.id}</h2>
+                    <StatusSelect orderId={order.id} status={order.status} onChanged={handleStatusChanged} />
                   </div>
                   <div className="order-card__customer">
-                    {order.customer_name} {order.customer_surname}
+                    <Link to={`/customers/${order.customer_id}`} className="crm-link crm-link--plain">
+                      {order.customer_name} {order.customer_surname}
+                    </Link>
                   </div>
                   <div className="order-card__meta">{order.customer_phone}</div>
                   <div className="order-card__meta">{order.customer_address}</div>
@@ -194,7 +254,7 @@ export default function OrdersView() {
                     <span>
                       {item.oil_name}, {item.count}×{item.volume} мл
                     </span>
-                    <span>{(item.revenue || 0).toLocaleString('ru-RU')} ₽</span>
+                    <span>{(item.revenue || item.price * item.count || 0).toLocaleString('ru-RU')} ₽</span>
                   </div>
                 ))}
 

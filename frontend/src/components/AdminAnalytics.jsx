@@ -81,9 +81,6 @@ export default function AdminAnalytics() {
   const [productAnalytics, setProductAnalytics] = useState([])
   const [summaryAnalytics, setSummaryAnalytics] = useState(null)
   const [analyticsError, setAnalyticsError] = useState('')
-  const [chatMessages, setChatMessages] = useState([])
-  const [chatInput, setChatInput] = useState('')
-  const [isChatLoading, setIsChatLoading] = useState(false)
 
   useEffect(() => {
     async function loadData() {
@@ -488,72 +485,6 @@ export default function AdminAnalytics() {
             ))}
           </tbody>
         </table>
-      </div>
-
-      <div className="section-head">
-        <div>
-          <h3 className="section-head__title">Ассистент-аналитик</h3>
-          <p className="section-head__text">
-            Задавайте вопросы о бизнесе на естественном языке — ассистент ответит на основе реальных данных.
-          </p>
-        </div>
-      </div>
-
-      <div className="chat-container">
-        <div className="chat-messages">
-          {chatMessages.length === 0 ? (
-            <div className="chat-empty">Начните диалог с ассистентом</div>
-          ) : (
-            chatMessages.map((msg, index) => (
-              <div key={index} className={`chat-message chat-message--${msg.role}`}>
-                <div className="chat-message__role">{msg.role === 'user' ? 'Вы' : 'Ассистент'}</div>
-                <div className="chat-message__content">{msg.content}</div>
-              </div>
-            ))
-          )}
-          {isChatLoading && (
-            <div className="chat-message chat-message--assistant">
-              <div className="chat-message__role">Ассистент</div>
-              <div className="chat-message__content">Думаю...</div>
-            </div>
-          )}
-        </div>
-        <form
-          className="chat-input-form"
-          onSubmit={async (event) => {
-            event.preventDefault()
-            if (!chatInput.trim() || isChatLoading) return
-
-            const userMessage = { role: 'user', content: chatInput }
-            setChatMessages((prev) => [...prev, userMessage])
-            setIsChatLoading(true)
-            const currentInput = chatInput
-            setChatInput('')
-
-            try {
-              const response = await api.askAssistant(currentInput)
-              const assistantMessage = { role: 'assistant', content: response.answer || 'Нет ответа' }
-              setChatMessages((prev) => [...prev, assistantMessage])
-            } catch (error) {
-              const errorMessage = { role: 'assistant', content: `Ошибка: ${error.message}` }
-              setChatMessages((prev) => [...prev, errorMessage])
-            } finally {
-              setIsChatLoading(false)
-            }
-          }}
-        >
-          <input
-            type="text"
-            value={chatInput}
-            onChange={(event) => setChatInput(event.target.value)}
-            placeholder="Задайте вопрос о бизнесе..."
-            className="ios-input"
-            disabled={isChatLoading}
-          />
-          <button type="submit" className="ios-button" disabled={!chatInput.trim() || isChatLoading}>
-            Отправить
-          </button>
-        </form>
       </div>
 
       <form onSubmit={handleAddBatch} className="editor-grid editor-grid--batches">

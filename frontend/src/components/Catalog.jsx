@@ -3,7 +3,8 @@ import OrderCart from './OrderCart'
 import PageHeader from './PageHeader'
 import { api } from '../lib/api'
 import { buildCartItems, buildProductIndex, calculateCartTotal, groupCatalogItems } from '../lib/catalog'
-import { INITIAL_CUSTOMER_FORM, STATUS_OPTIONS } from '../lib/constants'
+import { INITIAL_CUSTOMER_FORM } from '../lib/constants'
+import { useStatuses } from '../lib/statuses'
 
 const PRODUCT_IMAGE_ALIASES = {
   'кунжут нешлифованный': 'кунжут не шлифованый',
@@ -114,6 +115,7 @@ function CheckoutModal({
   submitting,
   totalPrice,
 }) {
+  const statuses = useStatuses()
   return (
     <div className="modal-backdrop">
       <div className="modal-card">
@@ -182,9 +184,9 @@ function CheckoutModal({
             onChange={(event) => onFieldChange('status', event.target.value)}
             className="ios-input"
           >
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            {statuses.map((option) => (
+              <option key={option.id} value={String(option.id)}>
+                {option.name}
               </option>
             ))}
           </select>

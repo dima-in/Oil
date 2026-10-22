@@ -2,26 +2,30 @@ import { useState } from 'react'
 import AdminAnalytics from './AdminAnalytics'
 import PageHeader from './PageHeader'
 import PricelistManager from './PricelistManager'
+import SettingsPanel from './SettingsPanel'
 import UploadPricelist from './UploadPricelist'
+import UsersPanel from './UsersPanel'
 
 const tabs = [
+  { id: 'analytics', label: 'Аналитика, партии и расходы' },
   { id: 'pricelist', label: 'Прайс-лист' },
-  { id: 'analytics', label: 'Аналитика' },
-  { id: 'upload', label: 'Загрузка файла' },
+  { id: 'upload', label: 'Загрузка прайса' },
+  { id: 'settings', label: 'Настройки' },
+  { id: 'users', label: 'Пользователи' },
 ]
 
-export default function AdminPanel() {
-  const [activeTab, setActiveTab] = useState('pricelist')
+export default function AdminPanel({ user }) {
+  const [activeTab, setActiveTab] = useState('analytics')
 
   return (
     <div className="page-stack">
       <PageHeader
         eyebrow="Управление"
-        title="Админ-панель"
-        description="Редактирование прайс-листа и загрузка новых данных."
+        title="Управление"
+        description="Аналитика и учёт производства, прайс-лист, настройки прессов и доступы сотрудников."
       />
 
-      <div className="filter-row">
+      <div className="filter-row filter-row--start">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -38,6 +42,8 @@ export default function AdminPanel() {
         {activeTab === 'pricelist' ? <PricelistManager /> : null}
         {activeTab === 'analytics' ? <AdminAnalytics /> : null}
         {activeTab === 'upload' ? <UploadPricelist /> : null}
+        {activeTab === 'settings' ? <SettingsPanel isAdmin={user?.role === 'admin'} /> : null}
+        {activeTab === 'users' ? <UsersPanel user={user} /> : null}
       </section>
     </div>
   )

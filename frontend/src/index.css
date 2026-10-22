@@ -24,13 +24,17 @@
   --danger-soft: #fef3f2;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
   --shadow-lg: 0 4px 6px -2px rgba(16, 24, 40, 0.05), 0 12px 16px -4px rgba(16, 24, 40, 0.1);
-  /* theme-aware overlays (flip in dark so hovers/surfaces stay visible) */
-  --wash-1: var(--wash-1);
-  --wash-2: var(--wash-2);
-  --wash-3: var(--wash-3);
-  --accent-wash: var(--accent-wash);
-  --accent-wash-2: var(--accent-wash-2);
-  --nav-bg: var(--nav-bg);
+  /* theme-aware overlays (flip in dark so hovers/surfaces stay visible).
+     Раньше здесь стояло --wash-1: var(--wash-1) — циклическая ссылка, и в светлой теме
+     подложки полей, чипов и кнопок были прозрачными. */
+  --wash-1: rgba(16, 24, 40, 0.035);
+  --wash-2: rgba(16, 24, 40, 0.07);
+  --wash-3: rgba(16, 24, 40, 0.12);
+  --accent-wash: rgba(79, 70, 229, 0.08);
+  --accent-wash-2: rgba(79, 70, 229, 0.18);
+  --nav-bg: rgba(255, 255, 255, 0.86);
+  --on-accent: #ffffff;
+  --sidebar-w: 248px;
 }
 
 :root[data-theme="dark"] {
@@ -961,10 +965,15 @@ button {
   border-radius: 999px;
   display: inline-grid;
   place-items: center;
-  color: #ffffff;
-  background: var(--panel);
+  color: var(--on-accent);
+  background: var(--accent);
   font-size: 0.72rem;
   font-weight: 800;
+}
+
+.quick-calendar__day--selected .quick-calendar__badge {
+  color: var(--accent-strong);
+  background: var(--panel);
 }
 
 .quick-order-form,

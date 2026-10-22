@@ -39,7 +39,6 @@ PROFILES = {
     'кунжутное': (8, 40, 3, 230),
     'грецкого ореха': (5, 45, 2, 700),
 }
-DEMO_LABOR_PER_BATCH = 2000  # «получка» за закладку для норм в «Экономике»
 FIRST = ['Анна', 'Мария', 'Елена', 'Ольга', 'Наталья', 'Ирина', 'Светлана', 'Татьяна', 'Юлия', 'Ксения',
          'Алексей', 'Дмитрий', 'Сергей', 'Андрей', 'Михаил', 'Игорь', 'Павел', 'Николай']
 LAST_F = ['Смирнова', 'Иванова', 'Кузнецова', 'Попова', 'Соколова', 'Лебедева', 'Козлова', 'Новикова',
@@ -50,7 +49,7 @@ SOURCES = ['Avito', 'Avito', 'Ozon', 'сарафан', 'сарафан', 'соц
 NOTES = ['позвонить за час', 'самовывоз после 18:00', 'доставка СДЭК', 'подарочная упаковка', None, None, None]
 MARKER = 'demo_seeded_on'
 # Меняется вместе с составом демо-данных: после деплоя демо-база пересоздаётся, не дожидаясь утра.
-SEED_VERSION = 'v2'
+SEED_VERSION = 'v3'
 
 _lock = threading.Lock()
 _fresh_on: Dict[str, str] = {}
@@ -95,12 +94,12 @@ def seed(customers_count: int = 28) -> dict:
         for oil, (kg, yield_percent, limit, seed_price) in PROFILES.items():
             cursor.execute(
                 """INSERT INTO production_profiles (oil_name, batch_seed_weight_kg, yield_percent, daily_batch_limit,
-                       seed_price_per_kg, labor_per_batch)
-                   VALUES (%s, %s, %s, %s, %s, %s)
+                       seed_price_per_kg)
+                   VALUES (%s, %s, %s, %s, %s)
                    ON DUPLICATE KEY UPDATE batch_seed_weight_kg = VALUES(batch_seed_weight_kg),
                        yield_percent = VALUES(yield_percent), daily_batch_limit = VALUES(daily_batch_limit),
-                       seed_price_per_kg = VALUES(seed_price_per_kg), labor_per_batch = VALUES(labor_per_batch)""",
-                (oil, kg, yield_percent, limit, seed_price, DEMO_LABOR_PER_BATCH),
+                       seed_price_per_kg = VALUES(seed_price_per_kg)""",
+                (oil, kg, yield_percent, limit, seed_price),
             )
 
         customers = []

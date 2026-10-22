@@ -1271,12 +1271,66 @@ def line_variable_cost(norm: dict, volume_ml: float, count: int, price: float, s
             'total': seeds + delivery + bottle + tax}
 
 
-def unit_economics() -> dict:
+SALES_MIX_DAYS = 365
+
+
+def _sold_ml_by_size(today: date) -> Dict[str, Dict[int, float]]:
+    """Сколько мл каждого масла продано в каждом объёме за последний год (без отменённых)."""
+    not_cancelled_sql, params = _in('o.status', status_ids('cancelled'), negate=True)
+    with UseDatabase(config) as cursor:
+        cursor.execute(
+            f"""SELECT d.oil_name, d.volume, SUM(d.volume * d.count) AS ml
+                FROM orders o JOIN order_details d ON d.order_id = o.id
+                WHERE o.date >= %s AND o.date <= %s AND {not_cancelled_sql}
+                GROUP BY d.oil_name, d.volume""",
+            (today - timedelta(days=SALES_MIX_DAYS), today, *params),
+        )
+        rows = _rows(cursor)
+    sold: Dict[str, Dict[int, float]] = {}
+    for row in rows:
+        by_size = sold.setdefault(_norm_name(row['oil_name']), {})
+        by_size[int(row['volume'])] = by_size.get(int(row['volume']), 0.0) + float(row['ml'] or 0)
+    return sold
+
+
+def batch_pay(items: List[dict], yield_ml: float, sold_ml: Dict[int, float]) -> Optional[dict]:
+    """«Получка за закладку» = выручка с закладки − затраты (семена по расходу и цене, доставка семян,
+    бутылки, налог) при текущем прайсе.
+
+    Цена и затраты на мл у бутылок разные (большие дешевле за мл), поэтому объёмы смешиваются так, как
+    их покупали за последний год; если продаж этого масла не было — поровну по объёмам прайса.
+    """
+    priced = [item for item in items if item['margin'] is not None and item['volume']]
+    if not priced or yield_ml <= 0:
+        return None
+    weights = {item['volume']: sold_ml.get(item['volume'], 0.0) for item in priced}
+    basis = 'sales' if sum(weights.values()) > 0 else 'price_list'
+    if basis == 'price_list':
+        weights = {item['volume']: 1.0 for item in priced}
+    total = sum(weights.values())
+
+    def per_batch(field):
+        return sum(item[field] / item['volume'] * weights[item['volume']] for item in priced) / total * yield_ml
+
+    by_size = [item['margin'] / item['volume'] * yield_ml for item in priced]
+    return {
+        'value': round(per_batch('margin'), 2),
+        'revenue': round(per_batch('price'), 2),
+        'cost': round(per_batch('cost'), 2),
+        'min': round(min(by_size), 2),
+        'max': round(max(by_size), 2),
+        'basis': basis,
+        'sold_ml': round(sum(sold_ml.values())),
+    }
+
+
+def unit_economics(today=None) -> dict:
     """Маржа каждой бутылки прайса: цена − семена − доставка семян − бутылка − налог.
 
-    Это то, что остаётся владельцу («получка») до прочих расходов: аренды, каршеринга,
-    комиссий маркетплейсов. Для сравнения — «получка», заложенная нормой за закладку.
+    Это то, что остаётся владельцу до прочих расходов: аренды, каршеринга, комиссий маркетплейсов.
+    «Получка за закладку» не вводится, а считается: сколько приносит одна закладка при текущих ценах.
     """
+    today = today or date.today()
     settings = get_settings()
     norms = cost_norms()
     with UseDatabase(config) as cursor:
@@ -1285,6 +1339,7 @@ def unit_economics() -> dict:
                GROUP BY oil_name, volume ORDER BY oil_name, volume"""
         )
         prices = cursor.fetchall()
+    sold = _sold_ml_by_size(today)
     items, missing, no_seed_price = [], set(), set()
     for oil_name, volume, price in prices:
         norm = norms.get(_norm_name(oil_name))
@@ -1308,9 +1363,21 @@ def unit_economics() -> dict:
             'cost': round(cost['total'], 2),
             'margin': round(margin, 2) if margin is not None else None,
             'margin_percent': round(margin / price * 100, 1) if margin is not None and price else None,
-            'planned_pay': round(norm['labor_per_batch'] / norm['yield_ml'] * float(volume), 2)
-            if norm['labor_per_batch'] else None,
+            # Если разлить всю закладку в бутылки этого объёма.
+            'batch_pay': round(margin / float(volume) * norm['yield_ml'], 2) if margin is not None and volume else None,
             'low': margin is not None and price > 0 and margin / price * 100 < LOW_MARGIN_PERCENT,
+        })
+    oils = []
+    for key, norm in sorted(norms.items(), key=lambda pair: pair[1]['oil_name']):
+        oil_items = [item for item in items if _norm_name(item['oil_name']) == key]
+        oils.append({
+            'oil_name': norm['oil_name'],
+            'kg_per_batch': norm['kg_per_batch'],
+            'yield_ml': round(norm['yield_ml']),
+            'seed_price_per_kg': norm['seed_price_per_kg'] or None,
+            'batch_pay': batch_pay(oil_items, norm['yield_ml'], sold.get(key, {})),
+            # «Получка», которую закладывала старая таблица, — только для сравнения.
+            'table_pay': norm['labor_per_batch'] or None,
         })
     warnings = []
     if missing:
@@ -1323,6 +1390,7 @@ def unit_economics() -> dict:
     return {
         'settings': {key: settings[key] for key in ('bottle_cost', 'seed_delivery_per_kg', 'tax_percent')},
         'norms': sorted(norms.values(), key=lambda norm: norm['oil_name']),
+        'oils': oils,
         'items': items,
         'warnings': warnings,
     }

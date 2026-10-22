@@ -14,13 +14,33 @@ function num(value, digits = 0) {
   return Number(value || 0).toLocaleString('ru-RU', { maximumFractionDigits: digits })
 }
 
-function NormRow({ profile, isAdmin, onSaved }) {
+const BASIS = {
+  sales: 'по продажам за год',
+  price_list: 'по прайсу, продаж не было',
+}
+
+// «Получка за закладку» считается сама: выход × маржа с мл при текущих ценах.
+function BatchPay({ oil }) {
+  const pay = oil?.batch_pay
+  if (!pay) return <span className="muted">нужна цена семян</span>
+  return (
+    <>
+      <strong>{money(pay.value)}</strong>
+      <div className="cell-note muted">
+        {BASIS[pay.basis]}
+        {pay.max - pay.min >= 1 ? ` · от ${money(pay.min)} до ${money(pay.max)}` : ''}
+      </div>
+      {oil.table_pay ? <div className="cell-note muted">в старой таблице {money(oil.table_pay)}</div> : null}
+    </>
+  )
+}
+
+function NormRow({ profile, oil, isAdmin, onSaved }) {
   const kg = Number(profile.batch_seed_weight_kg || 0)
   const [form, setForm] = useState({
     kg: profile.batch_seed_weight_kg ?? '',
     yieldMl: kg ? Math.round(kg * Number(profile.yield_percent || 0) * 10) : '',
     seedPrice: profile.seed_price_per_kg ?? '',
-    labor: profile.labor_per_batch ?? '',
   })
   const [saving, setSaving] = useState(false)
   const set = (field) => (event) => setForm((prev) => ({ ...prev, [field]: event.target.value }))
@@ -41,7 +61,6 @@ function NormRow({ profile, isAdmin, onSaved }) {
         daily_batch_limit: profile.daily_batch_limit,
         note: profile.note,
         seed_price_per_kg: form.seedPrice === '' ? null : Number(String(form.seedPrice).replace(',', '.')),
-        labor_per_batch: form.labor === '' ? null : Number(String(form.labor).replace(',', '.')),
       })
       onSaved()
     } catch (error) {
@@ -58,13 +77,16 @@ function NormRow({ profile, isAdmin, onSaved }) {
         ['kg', '0.1'],
         ['yieldMl', '10'],
         ['seedPrice', '1'],
-        ['labor', '50'],
       ].map(([field, step]) => (
         <td key={field} className="num">
           <input className="ios-input table-input" type="number" step={step} min="0" value={form[field]}
             onChange={set(field)} disabled={!isAdmin} />
         </td>
       ))}
+      <td className="num">{oil?.batch_pay ? money(oil.batch_pay.cost) : '—'}</td>
+      <td className="num">
+        <BatchPay oil={oil} />
+      </td>
       <td>
         {isAdmin ? (
           <button type="button" className="link-button" onClick={save} disabled={saving}>
@@ -83,6 +105,7 @@ export default function EconomicsPanel({ isAdmin }) {
   const [settingsForm, setSettingsForm] = useState(null)
   const [notice, setNotice] = useState(null)
   const assistant = useAssistant()
+  const oilsByName = Object.fromEntries((economics?.oils || []).map((oil) => [oil.oil_name, oil]))
 
   const load = useCallback(async () => {
     try {
@@ -123,8 +146,10 @@ export default function EconomicsPanel({ isAdmin }) {
           <h3 className="section-head__title">Экономика бутылки</h3>
           <p className="section-head__text">
             Маржа = цена − семена − доставка семян − бутылка − налог. Это то, что остаётся вам до аренды,
-            каршеринга, комиссий Ozon/Avito и прочих общих расходов. Нормы можно загрузить из старой таблицы
-            («Импорт заказов» читает лист «Прайс») или поправить здесь.
+            каршеринга, комиссий Ozon/Avito и прочих общих расходов. Затраты считаются сами — из расхода семян на
+            закладку и их цены, а «получка за закладку» = выручка с закладки − затраты при текущих ценах, с учётом
+            того, какие бутылки покупали за год. Нормы можно загрузить из старой таблицы («Импорт заказов» читает
+            лист «Прайс») или поправить здесь.
           </p>
         </div>
         <button
@@ -171,18 +196,19 @@ export default function EconomicsPanel({ isAdmin }) {
               <th className="num">Кг в закладке</th>
               <th className="num">Выход, мл</th>
               <th className="num">Семена, ₽/кг</th>
-              <th className="num">Получка за закладку, ₽</th>
+              <th className="num" title="Семена по расходу и цене, доставка семян, бутылки, налог">Затраты на закладку</th>
+              <th className="num">Получка за закладку</th>
               <th />
             </tr>
           </thead>
           <tbody>
             {profiles.map((profile) => (
-              <NormRow key={`${profile.id}-${profile.seed_price_per_kg}-${profile.labor_per_batch}`} profile={profile}
-                isAdmin={isAdmin} onSaved={load} />
+              <NormRow key={`${profile.id}-${profile.seed_price_per_kg}`} profile={profile}
+                oil={oilsByName[profile.oil_name]} isAdmin={isAdmin} onSaved={load} />
             ))}
             {!profiles.length ? (
               <tr>
-                <td colSpan={6} className="price-table__empty">Норм пока нет — загрузите их импортом из Excel.</td>
+                <td colSpan={7} className="price-table__empty">Норм пока нет — загрузите их импортом из Excel.</td>
               </tr>
             ) : null}
           </tbody>
@@ -203,7 +229,7 @@ export default function EconomicsPanel({ isAdmin }) {
               <th className="num">Доставка</th>
               <th className="num">Бутылка</th>
               <th className="num">Налог</th>
-              <th className="num" title="Сколько закладывает норма «получка за закладку» на этот объём">По норме</th>
+              <th className="num" title="Получка, если разлить всю закладку в бутылки этого объёма">За закладку</th>
             </tr>
           </thead>
           <tbody>
@@ -218,7 +244,7 @@ export default function EconomicsPanel({ isAdmin }) {
                 <td className="num">{num(item.delivery)}</td>
                 <td className="num">{num(item.bottle)}</td>
                 <td className="num">{num(item.tax)}</td>
-                <td className="num muted">{item.planned_pay === null ? '—' : money(item.planned_pay)}</td>
+                <td className="num muted">{item.batch_pay === null ? '—' : money(item.batch_pay)}</td>
               </tr>
             ))}
           </tbody>

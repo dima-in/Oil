@@ -144,7 +144,7 @@ export default function ImportOrdersPanel({ isAdmin }) {
                       <th className="num">Кг в закладке</th>
                       <th className="num">Выход, мл</th>
                       <th className="num">Семена, ₽/кг</th>
-                      <th className="num">Получка за закладку</th>
+                      <th className="num" title="Только для сравнения: в CRM получка считается сама из цен">Получка в таблице</th>
                       <th />
                     </tr>
                   </thead>

@@ -406,13 +406,19 @@ def tool_unit_economics(args: dict) -> dict:
     data = crm.unit_economics()
     oil = (args.get('oil_name') or '').strip().lower()
     items = [item for item in data['items'] if not oil or oil in item['oil_name'].lower()]
+    oils = [entry for entry in data['oils'] if not oil or oil in entry['oil_name'].lower()]
     return {
         'settings': data['settings'],
+        'oils': [{'oil_name': entry['oil_name'], 'kg_per_batch': entry['kg_per_batch'], 'yield_ml': entry['yield_ml'],
+                  'seed_price_per_kg': entry['seed_price_per_kg'], 'batch_pay': entry['batch_pay']} for entry in oils],
         'items': [{key: item[key] for key in ('oil_name', 'volume', 'price', 'seeds', 'delivery', 'bottle', 'tax',
-                                              'margin', 'margin_percent', 'planned_pay')} for item in items],
+                                              'margin', 'margin_percent', 'batch_pay')} for item in items],
         'warnings': data['warnings'],
         'note': 'margin = цена − семена − доставка семян − бутылка − налог; без аренды, каршеринга и комиссий; '
-                'margin = null — не указана цена семян, маржу не называй',
+                'margin = null — не указана цена семян, маржу не называй. batch_pay — «получка за закладку»: '
+                'сколько приносит одна закладка при текущих ценах (у масла — с учётом того, какие объёмы '
+                'покупали за год: basis=sales, иначе поровну по прайсу; min/max — если разлить всё в самую '
+                'невыгодную/выгодную бутылку; у бутылки — если разлить всю закладку в этот объём)',
     }
 
 

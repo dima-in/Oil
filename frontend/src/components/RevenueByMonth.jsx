@@ -40,6 +40,7 @@ export function MonthlyRevenueChart({ rows, note }) {
   // Маржа по нормам есть только в данных CRM (у отчёта импорта её нет).
   const hasMargin = rows.some((row) => row.margin !== undefined)
   const marginTotal = rows.reduce((sum, row) => sum + (row.margin || 0), 0)
+  const costTotal = rows.reduce((sum, row) => sum + (row.variable_cost || 0), 0)
   const expensesTotal = rows.reduce((sum, row) => sum + (row.expenses || 0), 0)
   const coveredRevenue = rows.reduce((sum, row) => sum + row.revenue * (row.norms_coverage ?? 0) / 100, 0)
   const coverage = total ? Math.round((coveredRevenue / total) * 100) : 0
@@ -65,7 +66,9 @@ export function MonthlyRevenueChart({ rows, note }) {
             <div className="kpi__label">Маржа по нормам</div>
             <div className="revenue-chart__avg">{money(marginTotal)}</div>
             <div className="kpi__hint">
-              {coverage < 100 ? `по ${coverage}% выручки — для остальных масел нет норм` : 'после семян, бутылок и налога'}
+              {coverage < 100
+                ? `по ${coverage}% выручки — для остальных масел нет норм`
+                : `затраты ${money(costTotal)}: семена, доставка, бутылки, налог`}
             </div>
           </div>
         ) : null}
@@ -158,6 +161,7 @@ export function MonthlyRevenueChart({ rows, note }) {
                 <th className="num">Бутылок</th>
                 <th className="num">Выручка</th>
                 <th className="num">Средний чек</th>
+                {hasMargin ? <th className="num">Затраты по нормам</th> : null}
                 {hasMargin ? <th className="num">Маржа по нормам</th> : null}
                 {hasMargin ? <th className="num">Расходы</th> : null}
               </tr>
@@ -170,6 +174,7 @@ export function MonthlyRevenueChart({ rows, note }) {
                   <td className="num">{row.bottles ?? '—'}</td>
                   <td className="num">{money(row.revenue)}</td>
                   <td className="num">{row.orders ? money(row.avg_check ?? row.revenue / row.orders) : '—'}</td>
+                  {hasMargin ? <td className="num">{row.revenue ? money(row.variable_cost) : '—'}</td> : null}
                   {hasMargin ? <td className="num">{row.revenue ? money(row.margin) : '—'}</td> : null}
                   {hasMargin ? <td className="num">{row.expenses ? money(row.expenses) : '—'}</td> : null}
                 </tr>

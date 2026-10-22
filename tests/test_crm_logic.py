@@ -106,9 +106,30 @@ def test_unit_economics_hides_margin_without_seed_price(monkeypatch):
     monkeypatch.setattr(crm, 'UseDatabase', FakeDatabase)
     monkeypatch.setattr(crm, 'list_production_profiles', lambda: profiles)
     monkeypatch.setattr(crm, 'get_settings', lambda: {'bottle_cost': 23, 'seed_delivery_per_kg': 50, 'tax_percent': 6})
+    monkeypatch.setattr(crm, '_sold_ml_by_size', lambda today: {})
 
     data = crm.unit_economics()
     cedar, flax = data['items']
     assert cedar['seeds'] == 520.0 and cedar['low']   # 0,4 кг × 1300 ₽ съедают бóльшую часть цены
     assert flax['margin'] is None and flax['margin_percent'] is None and not flax['low']
+    assert flax['batch_pay'] is None
     assert any('Не указана цена семян для: льняное' in warning for warning in data['warnings'])
+    oils = {oil['oil_name']: oil for oil in data['oils']}
+    # Закладка кедрового: 5 кг × 25% = 1250 мл; маржа 100 мл = 820 − 520 − 20 − 23 − 49,2 = 207,8 ₽
+    assert oils['кедровое']['batch_pay'] == {'value': 2597.5, 'revenue': 10250.0, 'cost': 7652.5, 'min': 2597.5,
+                                             'max': 2597.5, 'basis': 'price_list', 'sold_ml': 0}
+    assert oils['льняное']['batch_pay'] is None
+
+
+def test_batch_pay_follows_sales_mix():
+    items = [{'volume': 250, 'price': 750.0, 'cost': 250.0, 'margin': 500.0},      # 2 ₽ с мл
+             {'volume': 1000, 'price': 2000.0, 'cost': 1000.0, 'margin': 1000.0}]  # 1 ₽ с мл
+    # Продали поровну по мл → 1,5 ₽ с мл × 3000 мл; выручка 2,5 ₽/мл, затраты 1 ₽/мл
+    pay = crm.batch_pay(items, 3000, {250: 5000, 1000: 5000, 170: 340})
+    assert pay == {'value': 4500.0, 'revenue': 7500.0, 'cost': 3000.0, 'min': 3000.0, 'max': 6000.0,
+                   'basis': 'sales', 'sold_ml': 10340}
+    # Брали только литры → получка как у литра
+    assert crm.batch_pay(items, 3000, {1000: 4000})['value'] == 3000.0
+    # Продаж нет → поровну по объёмам прайса
+    assert crm.batch_pay(items, 3000, {})['basis'] == 'price_list'
+    assert crm.batch_pay([{'volume': 250, 'price': 750.0, 'cost': 0, 'margin': None}], 3000, {}) is None

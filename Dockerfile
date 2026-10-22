@@ -13,8 +13,8 @@ FROM dockerhub.timeweb.cloud/tiangolo/uvicorn-gunicorn-fastapi:python3.9
 WORKDIR /app
 
 COPY . /app
-COPY --from=frontend-build /frontend/dist/static/index.css /app/static/index.css
-COPY --from=frontend-build /frontend/dist/static/index.js /app/static/index.js
+# Весь каталог сборки: если Vite разобьёт бандл на чанки, они тоже попадут в образ.
+COPY --from=frontend-build /frontend/dist/static/ /app/static/
 
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir requests mysql-connector-python fastapi-cors python-multipart pymupdf

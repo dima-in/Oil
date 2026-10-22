@@ -2,6 +2,9 @@ networks:
   oil_network:
     driver: bridge
 
+# Секреты и настройки берутся из файла .env рядом с этим файлом (на сервере, в git его нет).
+# Пример — .env.example. Без .env всё работает на значениях по умолчанию, но без ИИ.
+
 services:
   db:
     image: dockerhub.timeweb.cloud/library/mysql:8.0
@@ -9,17 +12,19 @@ services:
     environment:
       MYSQL_DATABASE: 'oilordersDB'
       MYSQL_USER: 'oilorder_admin'
-      MYSQL_PASSWORD: 'oilpasswd'
-      MYSQL_ROOT_PASSWORD: 'rootoilorderspsw'
+      MYSQL_PASSWORD: ${DB_PASSWORD:-oilpasswd}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootoilorderspsw}
     volumes:
       - ./db_data:/var/lib/mysql
     ports:
-      - "3307:3306"
+      # Только с самого сервера (SSH-туннель для DBeaver и т.п.): приложение ходит в базу
+      # по внутренней сети docker, а наружу база с паролями из публичного репозитория не смотрит.
+      - "127.0.0.1:3307:3306"
     networks:
       - oil_network
     restart: always
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "oilorder_admin", "-poilpasswd"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u oilorder_admin -p$$MYSQL_PASSWORD"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,9 +42,17 @@ services:
       DB_HOST: db
       DB_PORT: 3306
       DB_USER: 'oilorder_admin'
-      DB_PASSWORD: 'oilpasswd'
+      DB_PASSWORD: ${DB_PASSWORD:-oilpasswd}
       DB_NAME: 'oilordersDB'
       PYTHONIOENCODING: 'utf-8'
+      # ИИ-помощник: ключ шлюза (novpnai gw-… или OpenRouter sk-or-…), адрес и модель.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OIL_LLM_URL: ${OIL_LLM_URL:-}
+      OIL_AGENT_MODEL: ${OIL_AGENT_MODEL:-}
+      # Вход: ключ подписи токенов и первый администратор (создаётся один раз на пустой базе).
+      OIL_SECRET_KEY: ${OIL_SECRET_KEY:-}
+      OIL_ADMIN_USER: ${OIL_ADMIN_USER:-}
+      OIL_ADMIN_PASSWORD: ${OIL_ADMIN_PASSWORD:-}
     networks:
       - oil_network
     restart: always

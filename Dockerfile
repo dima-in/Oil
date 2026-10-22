@@ -17,7 +17,7 @@ COPY . /app
 COPY --from=frontend-build /frontend/dist/static/ /app/static/
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir requests mysql-connector-python fastapi-cors python-multipart pymupdf
+    pip install --no-cache-dir requests mysql-connector-python fastapi-cors python-multipart pymupdf openpyxl
 
 EXPOSE 8000
 

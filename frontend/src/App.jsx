@@ -118,6 +118,12 @@ function Shell({ user }) {
         </header>
 
         <main className="crm-content">
+          {user.is_demo ? (
+            <div className="demo-banner">
+              <strong>Демо-режим.</strong> Данные вымышленные и пересоздаются каждый день — можно смело нажимать
+              всё, включая ИИ-помощника.
+            </div>
+          ) : null}
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/assistant" element={<AssistantPage />} />

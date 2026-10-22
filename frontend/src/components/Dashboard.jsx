@@ -6,6 +6,7 @@ import { dateRu, money, volume } from '../lib/format'
 import { useAssistant } from './assistant/AssistantContext'
 import OrderRow from './OrderRow'
 import PageHeader from './PageHeader'
+import RevenueByMonth from './RevenueByMonth'
 
 const AI_PROMPTS = [
   'Что сегодня важно сделать в первую очередь?',
@@ -125,6 +126,8 @@ export default function Dashboard() {
           tone={data.tasks_due.some((task) => task.is_overdue) ? 'warning' : undefined}
         />
       </div>
+
+      <RevenueByMonth />
 
       <section className="ai-strip">
         <div className="ai-strip__text">

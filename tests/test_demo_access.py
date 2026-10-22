@@ -38,7 +38,7 @@ def bearer(token):
 
 def test_demo_button_logs_in_and_refreshes_demo_data(demo_on):
     client = TestClient(main.app)
-    assert client.get('/api/auth/demo').json() == {'enabled': True, 'username': 'demo'}
+    assert client.get('/api/auth/demo').json() == {'enabled': True, 'username': 'demo', 'password': 'demo'}
 
     resp = client.post('/api/auth/demo')
     assert resp.status_code == 200
@@ -49,7 +49,7 @@ def test_demo_button_logs_in_and_refreshes_demo_data(demo_on):
 
 def test_demo_disabled_without_env():
     client = TestClient(main.app)
-    assert client.get('/api/auth/demo').json() == {'enabled': False, 'username': None}
+    assert client.get('/api/auth/demo').json() == {'enabled': False, 'username': None, 'password': None}
     assert client.post('/api/auth/demo').status_code == 404
     # и по паролю демо-пользователь без демо-базы не входит
     assert client.post('/api/auth/login', json={'username': 'demo', 'password': 'demo'}).status_code == 403

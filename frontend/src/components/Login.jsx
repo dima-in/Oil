@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { saveSession } from '../lib/auth'
 
@@ -7,19 +7,31 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [demo, setDemo] = useState(null)
 
-  const handleSubmit = async (event) => {
-    event.preventDefault()
+  useEffect(() => {
+    api
+      .demoInfo()
+      .then((info) => setDemo(info.enabled ? info : null))
+      .catch(() => setDemo(null))
+  }, [])
+
+  const enter = async (call) => {
     setLoading(true)
     setError('')
     try {
-      const { token, user } = await api.login(username.trim(), password)
+      const { token, user } = await call()
       saveSession(token, user)
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    enter(() => api.login(username.trim(), password))
   }
 
   return (
@@ -54,6 +66,16 @@ export default function Login() {
         <button type="submit" className="ios-button primary" disabled={loading}>
           {loading ? 'Входим…' : 'Войти'}
         </button>
+        {demo ? (
+          <div className="login-card__demo">
+            <button type="button" className="ios-button secondary" disabled={loading} onClick={() => enter(api.demoLogin)}>
+              Посмотреть демо
+            </button>
+            <span className="muted">
+              Вымышленные данные, сбрасываются каждый день. Логин {demo.username}, пароль {demo.password}.
+            </span>
+          </div>
+        ) : null}
       </form>
     </div>
   )

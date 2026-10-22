@@ -11,3 +11,5 @@ frontend/dist/
 # собранный бандл: в Docker кладётся из стадии сборки, локально — копией из frontend/dist
 static/index.js
 static/index.css
+# таблицы заказов с данными клиентов — не в публичный репозиторий
+*.xlsx

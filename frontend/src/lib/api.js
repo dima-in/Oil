@@ -57,6 +57,8 @@ export const api = {
   login: (username, password) =>
     request('/auth/login', { method: 'POST', auth: false, json: { username, password } }),
   me: () => request('/auth/me'),
+  demoInfo: () => request('/auth/demo', { auth: false }),
+  demoLogin: () => request('/auth/demo', { method: 'POST', auth: false }),
   changePassword: (currentPassword, newPassword) =>
     request('/auth/password', {
       method: 'POST',
@@ -76,6 +78,12 @@ export const api = {
   deletePrice: (id) => request(`/admin/pricelist/${id}`, { method: 'DELETE' }),
   clearPricelist: () => request('/admin/pricelist/clear', { method: 'POST' }),
   uploadPricelist: (formData) => request('/admin/upload-pricelist', { method: 'POST', body: formData }),
+  importOrders: (file, commit) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('commit', commit ? 'true' : 'false')
+    return request('/crm/import/orders', { method: 'POST', body: form })
+  },
   getAnalytics: ({ period, dateFrom, dateTo }) =>
     request(`/admin/analytics${query({ period, date_from: dateFrom, date_to: dateTo })}`),
   getExpenses: ({ dateFrom, dateTo }) =>
@@ -98,6 +106,7 @@ export const api = {
     settings: () => request('/crm/settings'),
     updateSettings: (payload) => request('/crm/settings', { method: 'PATCH', json: payload }),
     productionSchedule: (days) => request(`/crm/production-schedule${query({ days })}`),
+    revenueByMonth: (months) => request(`/crm/revenue-by-month${query({ months })}`),
     order: (id) => request(`/crm/orders/${id}`),
     updateOrder: (id, payload) => request(`/crm/orders/${id}`, { method: 'PATCH', json: payload }),
     customers: (q) => request(`/crm/customers${query({ q })}`),

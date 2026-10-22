@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import AdminAnalytics from './AdminAnalytics'
+import ImportOrdersPanel from './ImportOrdersPanel'
 import PageHeader from './PageHeader'
 import PricelistManager from './PricelistManager'
 import SettingsPanel from './SettingsPanel'
@@ -10,6 +11,7 @@ const tabs = [
   { id: 'analytics', label: 'Аналитика, партии и расходы' },
   { id: 'pricelist', label: 'Прайс-лист' },
   { id: 'upload', label: 'Загрузка прайса' },
+  { id: 'import', label: 'Импорт заказов' },
   { id: 'settings', label: 'Настройки' },
   { id: 'users', label: 'Пользователи' },
 ]
@@ -42,6 +44,7 @@ export default function AdminPanel({ user }) {
         {activeTab === 'pricelist' ? <PricelistManager /> : null}
         {activeTab === 'analytics' ? <AdminAnalytics /> : null}
         {activeTab === 'upload' ? <UploadPricelist /> : null}
+        {activeTab === 'import' ? <ImportOrdersPanel isAdmin={user?.role === 'admin' && !user?.is_demo} /> : null}
         {activeTab === 'settings' ? <SettingsPanel isAdmin={user?.role === 'admin'} /> : null}
         {activeTab === 'users' ? <UsersPanel user={user} /> : null}
       </section>

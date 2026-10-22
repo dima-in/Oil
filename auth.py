@@ -337,7 +337,9 @@ def demo_info():
     if enabled:
         user = find_user(username=username)
         enabled = bool(user and user['is_demo'] and user['is_active'])
-    return {'enabled': enabled, 'username': username if enabled else None}
+    # Демо-пароль публичный (его пишут в портфолио), поэтому его можно показать на экране входа.
+    return {'enabled': enabled, 'username': username if enabled else None,
+            'password': (os.getenv('OIL_DEMO_PASSWORD') or 'demo') if enabled else None}
 
 
 @router.post('/auth/demo')

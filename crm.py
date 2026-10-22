@@ -1212,6 +1212,46 @@ def production_schedule(days=14, today=None) -> dict:
     }
 
 
+# ── revenue by month ─────────────────────────────────────────────────────────
+
+def revenue_by_month(months=24, today=None) -> List[dict]:
+    """Выручка по месяцам (по дате заказа, без отменённых): заказы, бутылки, выручка, средний чек."""
+    today = today or date.today()
+    first_month = today.year * 12 + today.month - 1 - (int(months) - 1)
+    start = date(first_month // 12, first_month % 12 + 1, 1)
+    not_cancelled_sql, params = _in('o.status', status_ids('cancelled'), negate=True)
+    with UseDatabase(config) as cursor:
+        cursor.execute(
+            f"""SELECT DATE_FORMAT(o.date, '%Y-%m') AS month,
+                       COUNT(DISTINCT o.id) AS orders,
+                       COALESCE(SUM(d.count), 0) AS bottles,
+                       COALESCE(SUM(d.price * d.count), 0) AS revenue,
+                       COALESCE(SUM(d.seed_cost), 0) AS seed_cost
+                FROM orders o JOIN order_details d ON d.order_id = o.id
+                WHERE o.date >= %s AND o.date <= %s AND {not_cancelled_sql}
+                GROUP BY DATE_FORMAT(o.date, '%Y-%m')
+                ORDER BY month""",
+            (start, today, *params),
+        )
+        rows = {row['month']: row for row in _rows(cursor)}
+    result, cursor_month = [], start
+    while cursor_month <= today:
+        key = cursor_month.strftime('%Y-%m')
+        row = rows.get(key) or {'orders': 0, 'bottles': 0, 'revenue': 0.0, 'seed_cost': 0.0}
+        orders = int(row['orders'] or 0)
+        revenue = float(row['revenue'] or 0)
+        result.append({
+            'month': key,
+            'orders': orders,
+            'bottles': int(row['bottles'] or 0),
+            'revenue': revenue,
+            'gross_profit': revenue - float(row['seed_cost'] or 0),
+            'avg_check': revenue / orders if orders else 0.0,
+        })
+        cursor_month = (cursor_month + timedelta(days=32)).replace(day=1)
+    return result
+
+
 # ── dashboard ────────────────────────────────────────────────────────────────
 
 def dashboard(today=None) -> dict:
@@ -1412,6 +1452,11 @@ def api_update_settings(payload: dict = Body(...), admin: dict = Depends(require
 @router.get('/production-schedule')
 def api_production_schedule(days: int = Query(14, ge=1, le=60), user: dict = Depends(get_current_user)):
     return _http(production_schedule, days=days)
+
+
+@router.get('/revenue-by-month')
+def api_revenue_by_month(months: int = Query(24, ge=1, le=120), user: dict = Depends(get_current_user)):
+    return _http(revenue_by_month, months=months)
 
 
 @router.get('/stock')

@@ -16,6 +16,7 @@ from starlette.staticfiles import StaticFiles
 import assistant
 import auth
 import crm
+import order_import
 from auth import get_current_user
 from Catalog import add_price_data_to_table, get_oil_catalog, load_pricelist_from_pdf
 from Customer import Customer
@@ -189,6 +190,7 @@ app.add_middleware(auth.DemoDatabaseMiddleware)
 app.include_router(auth.router)
 app.include_router(crm.router)
 app.include_router(assistant.router)
+app.include_router(order_import.router)
 
 
 @app.on_event('startup')

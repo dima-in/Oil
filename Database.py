@@ -735,6 +735,11 @@ def get_batch_analytics(date_from=None, date_to=None, daily_batch_limit=3):
     }
 
 
+NOT_CANCELLED_SQL = (
+    "orders.status NOT IN (SELECT id FROM order_statuses WHERE LOWER(name) LIKE '%отмен%')"
+)
+
+
 def get_profit_summary(date_from=None, date_to=None, period='month'):
     group_expressions = {
         'day': ("DATE_FORMAT(orders.date, '%Y-%m-%d')", "DATE(orders.date)"),
@@ -743,7 +748,9 @@ def get_profit_summary(date_from=None, date_to=None, period='month'):
     }
     label_expression, group_expression = group_expressions.get(period, group_expressions['month'])
 
-    filters = []
+    # Отменённые заказы в выручку не идут (статус узнаём по названию — номера в базах разные).
+    # У старых строк колонки revenue/profit пустые: тогда считаем цену × количество.
+    filters = [NOT_CANCELLED_SQL]
     params = []
     if date_from:
         filters.append("orders.date >= %s")
@@ -758,9 +765,9 @@ def get_profit_summary(date_from=None, date_to=None, period='month'):
         cursor.execute(
             f"""SELECT
                     COUNT(DISTINCT orders.id) AS orders_count,
-                    COALESCE(SUM(order_details.revenue), 0) AS revenue,
+                    COALESCE(SUM(COALESCE(NULLIF(order_details.revenue, 0), order_details.price * order_details.count)), 0) AS revenue,
                     COALESCE(SUM(order_details.seed_cost), 0) AS seed_cost,
-                    COALESCE(SUM(order_details.profit), 0) AS profit,
+                    COALESCE(SUM(CASE WHEN order_details.revenue > 0 THEN order_details.profit ELSE order_details.price * order_details.count - order_details.seed_cost END), 0) AS profit,
                     COALESCE(SUM(order_details.seed_weight_kg * order_details.count), 0) AS seed_weight_kg
                 FROM orders
                 JOIN order_details ON orders.id = order_details.order_id
@@ -811,9 +818,9 @@ def get_profit_summary(date_from=None, date_to=None, period='month'):
             f"""SELECT
                     {label_expression} AS label,
                     COUNT(DISTINCT orders.id) AS orders_count,
-                    COALESCE(SUM(order_details.revenue), 0) AS revenue,
+                    COALESCE(SUM(COALESCE(NULLIF(order_details.revenue, 0), order_details.price * order_details.count)), 0) AS revenue,
                     COALESCE(SUM(order_details.seed_cost), 0) AS seed_cost,
-                    COALESCE(SUM(order_details.profit), 0) AS profit,
+                    COALESCE(SUM(CASE WHEN order_details.revenue > 0 THEN order_details.profit ELSE order_details.price * order_details.count - order_details.seed_cost END), 0) AS profit,
                     COALESCE(SUM(order_details.seed_weight_kg * order_details.count), 0) AS seed_weight_kg
                 FROM orders
                 JOIN order_details ON orders.id = order_details.order_id
@@ -886,8 +893,8 @@ def get_profit_summary(date_from=None, date_to=None, period='month'):
             f"""SELECT
                     order_details.oil_name,
                     COALESCE(SUM(order_details.seed_weight_kg * order_details.count), 0) AS seed_weight_kg,
-                    COALESCE(SUM(order_details.revenue), 0) AS revenue,
-                    COALESCE(SUM(order_details.profit), 0) AS profit
+                    COALESCE(SUM(COALESCE(NULLIF(order_details.revenue, 0), order_details.price * order_details.count)), 0) AS revenue,
+                    COALESCE(SUM(CASE WHEN order_details.revenue > 0 THEN order_details.profit ELSE order_details.price * order_details.count - order_details.seed_cost END), 0) AS profit
                 FROM orders
                 JOIN order_details ON orders.id = order_details.order_id
                 {where_clause}

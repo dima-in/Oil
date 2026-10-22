@@ -1,6 +1,6 @@
 from datetime import date
 
-from UseDatabase import UseDatabase, config
+from UseDatabase import UseDatabase, active_database, config
 
 
 def _fetchone_dict(cursor):
@@ -16,7 +16,7 @@ def _column_exists(cursor, table_name, column_name):
         """SELECT COUNT(*)
            FROM information_schema.COLUMNS
            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s""",
-        (config['database'], table_name, column_name),
+        (active_database(), table_name, column_name),
     )
     return cursor.fetchone()[0] > 0
 

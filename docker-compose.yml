@@ -53,6 +53,10 @@ services:
       OIL_SECRET_KEY: ${OIL_SECRET_KEY:-}
       OIL_ADMIN_USER: ${OIL_ADMIN_USER:-}
       OIL_ADMIN_PASSWORD: ${OIL_ADMIN_PASSWORD:-}
+      # Демо-вход (логин demo / demo и кнопка на экране входа) работает в отдельной базе
+      # с вымышленными данными; пустое значение выключает демо.
+      OIL_DEMO_DB: ${OIL_DEMO_DB-oil_demo}
+      OIL_DEMO_AI_PER_HOUR: ${OIL_DEMO_AI_PER_HOUR:-}
     networks:
       - oil_network
     restart: always

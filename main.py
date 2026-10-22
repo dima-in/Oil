@@ -185,6 +185,7 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory='templates')
+app.add_middleware(auth.DemoDatabaseMiddleware)
 app.include_router(auth.router)
 app.include_router(crm.router)
 app.include_router(assistant.router)

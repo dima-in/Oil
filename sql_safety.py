@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import mysql.connector
 
-from UseDatabase import config
+from UseDatabase import connection_config
 
 # Служебные таблицы (пароли, секрет токенов, журнал действий ИИ) модели не показываем
 # и читать не даём: ответы ассистента видит любой вошедший пользователь.
@@ -111,7 +111,7 @@ def run_readonly_query(query: str, max_rows: int = 50, timeout_ms: int = 8000) -
     if not validate_sql_query(query):
         raise ValueError("Разрешён только один read-only SELECT без служебных таблиц")
 
-    conn = mysql.connector.connect(**config)
+    conn = mysql.connector.connect(**connection_config())
     try:
         cursor = conn.cursor()
         cursor.execute(f"SET SESSION MAX_EXECUTION_TIME = {int(timeout_ms)}")

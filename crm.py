@@ -17,7 +17,7 @@ from auth import get_current_user, require_admin
 from Database import _add_column_if_missing, create_tables_sync, list_production_profiles
 from OrderItem import OrderItem
 from sql_safety import to_jsonable
-from UseDatabase import UseDatabase, config
+from UseDatabase import UseDatabase, active_database, config
 
 # Номера статусов в разных базах разные (справочник сеялся разными версиями кода),
 # поэтому смысл статуса определяем по названию, а не по id.
@@ -54,8 +54,9 @@ INTERACTION_KINDS = {
 }
 CUSTOMER_FIELDS = ('name', 'surname', 'phone', 'address', 'email', 'source', 'tags', 'note')
 
-_schema_ready = False
-_status_cache: Dict[str, object] = {'at': 0.0, 'rows': None}
+# Кэши — по имени базы: у демо-базы свои статусы и своя схема.
+_schema_ready: set = set()
+_status_cache: Dict[str, dict] = {}
 
 
 class CrmError(Exception):
@@ -67,8 +68,8 @@ class NotFound(CrmError):
 
 
 def ensure_crm_schema():
-    global _schema_ready
-    if _schema_ready:
+    database = active_database()
+    if database in _schema_ready:
         return
     create_tables_sync()
     with UseDatabase(config) as cursor:
@@ -110,14 +111,14 @@ def ensure_crm_schema():
         _widen_varchar(cursor, 'customers', 'address', 255, "NOT NULL DEFAULT ''")
         _widen_varchar(cursor, 'customers', 'phone', 32, "NOT NULL DEFAULT ''")
         _widen_varchar(cursor, 'customers', 'surname', 100, "NOT NULL DEFAULT ''")
-    _schema_ready = True
+    _schema_ready.add(database)
 
 
 def _widen_varchar(cursor, table, column, length, tail):
     cursor.execute(
         """SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS
            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s""",
-        (config['database'], table, column),
+        (active_database(), table, column),
     )
     row = cursor.fetchone()
     if row and row[0] is not None and int(row[0]) < length:
@@ -129,7 +130,7 @@ def _add_created_at_column(cursor):
     cursor.execute(
         """SELECT COUNT(*) FROM information_schema.COLUMNS
            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'customers' AND COLUMN_NAME = 'created_at'""",
-        (config['database'],),
+        (active_database(),),
     )
     if cursor.fetchone()[0]:
         return
@@ -202,8 +203,9 @@ def _status_role(name) -> Optional[str]:
 
 def list_statuses() -> List[dict]:
     """Справочник статусов с ролью каждого: new / done / cancelled / awaiting_payment / None."""
-    if _status_cache['rows'] is not None and time.time() - float(_status_cache['at']) < STATUS_CACHE_SECONDS:
-        return [dict(row) for row in _status_cache['rows']]
+    cached = _status_cache.get(active_database())
+    if cached and time.time() - cached['at'] < STATUS_CACHE_SECONDS:
+        return [dict(row) for row in cached['rows']]
     ensure_crm_schema()
     with UseDatabase(config) as cursor:
         cursor.execute("SELECT COUNT(*) FROM order_statuses")
@@ -218,7 +220,7 @@ def list_statuses() -> List[dict]:
     for row in rows:
         row['role'] = _status_role(row['name'])
         row['is_closed'] = row['role'] in ('done', 'cancelled')
-    _status_cache.update(at=time.time(), rows=rows)
+    _status_cache[active_database()] = {'at': time.time(), 'rows': rows}
     return [dict(row) for row in rows]
 
 

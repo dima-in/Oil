@@ -25,7 +25,7 @@ import crm
 from auth import get_current_user
 from Database import add_expense_entry, add_production_batch, list_expense_entries, list_production_profiles
 from sql_safety import HIDDEN_TABLES, run_readonly_query, to_jsonable
-from UseDatabase import UseDatabase, config
+from UseDatabase import UseDatabase, active_database, config
 
 log = logging.getLogger('oilpress.assistant')
 
@@ -59,12 +59,12 @@ class AssistantUnavailable(Exception):
 
 # ── pending actions ──────────────────────────────────────────────────────────
 
-_schema_ready = False
+_schema_ready: set = set()
 
 
 def ensure_assistant_schema():
-    global _schema_ready
-    if _schema_ready:
+    database = active_database()
+    if database in _schema_ready:
         return
     with UseDatabase(config) as cursor:
         cursor.execute("""CREATE TABLE IF NOT EXISTS assistant_actions (
@@ -78,7 +78,7 @@ def ensure_assistant_schema():
                             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                             resolved_at DATETIME NULL
                             )""")
-    _schema_ready = True
+    _schema_ready.add(database)
 
 
 def _dump(value) -> str:
@@ -750,7 +750,7 @@ TOOLS: Dict[str, ToolSpec] = {
 
 # ── prompt ───────────────────────────────────────────────────────────────────
 
-_schema_cache: Dict[str, object] = {'at': 0.0, 'text': ''}
+_schema_cache: Dict[str, dict] = {}
 
 SCHEMA_NOTES = """Смысл данных:
 - orders: date — когда создан, shipping_date — когда отгрузить/выдать, total_price — сумма заказа,
@@ -767,13 +767,15 @@ SCHEMA_NOTES = """Смысл данных:
 
 
 def describe_schema() -> str:
-    if time.time() - float(_schema_cache['at']) < 300 and _schema_cache['text']:
-        return str(_schema_cache['text'])
+    database = active_database()
+    cached = _schema_cache.get(database)
+    if cached and time.time() - cached['at'] < 300:
+        return cached['text']
     with UseDatabase(config) as cursor:
         cursor.execute(
             """SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS
                WHERE TABLE_SCHEMA = %s ORDER BY TABLE_NAME, ORDINAL_POSITION""",
-            (config['database'],),
+            (database,),
         )
         tables: Dict[str, List[str]] = {}
         for table, column, column_type in cursor.fetchall():
@@ -781,7 +783,7 @@ def describe_schema() -> str:
                 continue
             tables.setdefault(table, []).append(f'{column} {column_type}')
     text = '\n'.join(f"- {table}({', '.join(columns)})" for table, columns in tables.items())
-    _schema_cache.update(at=time.time(), text=text)
+    _schema_cache[database] = {'at': time.time(), 'text': text}
     return text
 
 
@@ -1135,6 +1137,21 @@ def run_agent(messages, user: dict, context: Optional[dict] = None) -> dict:
 
 router = APIRouter(prefix='/api/assistant')
 
+# Демо открыто всем, а вызовы модели стоят денег: общий лимит на демо-доступ в час.
+_demo_calls: List[float] = []
+
+
+def _check_demo_quota(user: dict):
+    if not user.get('is_demo'):
+        return
+    limit = int(os.getenv('OIL_DEMO_AI_PER_HOUR') or 40)
+    now = time.time()
+    _demo_calls[:] = [moment for moment in _demo_calls if now - moment < 3600]
+    if len(_demo_calls) >= limit:
+        raise HTTPException(status_code=429, detail='Лимит вопросов к ИИ в демо на этот час исчерпан. '
+                                                    'Загляните чуть позже.')
+    _demo_calls.append(now)
+
 
 def _action_http(call, action_id: str, user: dict):
     try:
@@ -1154,6 +1171,7 @@ def api_status(user: dict = Depends(get_current_user)):
 
 @router.post('/chat')
 def api_chat(payload: dict = Body(...), user: dict = Depends(get_current_user)):
+    _check_demo_quota(user)
     try:
         return run_agent(payload.get('messages'), user, payload.get('context'))
     except AssistantUnavailable as error:
@@ -1167,6 +1185,7 @@ def api_chat(payload: dict = Body(...), user: dict = Depends(get_current_user)):
 
 @router.post('/parse-order')
 def api_parse_order(payload: dict = Body(...), user: dict = Depends(get_current_user)):
+    _check_demo_quota(user)
     try:
         return parse_order_text(payload.get('text') or '')
     except AssistantUnavailable as error:

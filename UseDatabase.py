@@ -1,6 +1,8 @@
 import mysql.connector
 import socket
 import os
+from contextvars import ContextVar
+from typing import Optional
 
 
 class ConnectionError(Exception):
@@ -39,10 +41,28 @@ config = {
     'charset': 'utf8'
 }
 
+# База текущего запроса. Демо-пользователь работает в отдельной базе (OIL_DEMO_DB):
+# middleware в auth.py ставит её на весь запрос, и любой UseDatabase(config) идёт туда.
+# Пользователи и секреты живут только в основной базе (UseDatabase(config, use_override=False)).
+current_database: ContextVar[Optional[str]] = ContextVar('current_database', default=None)
+
+
+def active_database() -> str:
+    return current_database.get() or config['database']
+
+
+def connection_config(base: dict = None, use_override: bool = True) -> dict:
+    settings = dict(base or config)
+    override = current_database.get() if use_override else None
+    if override:
+        settings['database'] = override
+    return settings
+
+
 class UseDatabase:
 
-    def __init__(self, config: dict) -> None:
-        self.configuration = config
+    def __init__(self, config: dict, use_override: bool = True) -> None:
+        self.configuration = connection_config(config, use_override)
 
     def __enter__(self) -> 'cursor':
         try:

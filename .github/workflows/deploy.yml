@@ -88,5 +88,10 @@ jobs:
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             docker compose pull web
             docker compose up -d --no-build --remove-orphans
+            # Демо-база для демо-входа: создаётся один раз (нужен root MySQL), наполняет её приложение.
+            docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' <<'SQL' || echo "demo database setup skipped"
+            CREATE DATABASE IF NOT EXISTS oil_demo CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+            GRANT ALL PRIVILEGES ON oil_demo.* TO 'oilorder_admin'@'%';
+            SQL
             docker image prune -f
             docker compose ps

@@ -17,6 +17,7 @@ FAKE_USERS = {
         'full_name': 'Владелец',
         'role': 'admin',
         'is_active': True,
+        'is_demo': False,
         'created_at': None,
     },
     2: {
@@ -26,6 +27,17 @@ FAKE_USERS = {
         'full_name': 'Сотрудник',
         'role': 'manager',
         'is_active': True,
+        'is_demo': False,
+        'created_at': None,
+    },
+    3: {
+        'id': 3,
+        'username': 'demo',
+        'password_hash': auth.hash_password('demo'),
+        'full_name': 'Демо-доступ',
+        'role': 'manager',
+        'is_active': True,
+        'is_demo': True,
         'created_at': None,
     },
 }
@@ -41,5 +53,7 @@ def fake_auth_users(monkeypatch):
     monkeypatch.setattr(auth, 'ensure_auth_schema', lambda: None)
     monkeypatch.setattr(auth, '_secret_key', lambda: b'test-secret')
     monkeypatch.setattr(auth, 'find_user', find_user)
+    monkeypatch.delenv('OIL_DEMO_DB', raising=False)
     auth._login_attempts.clear()
+    auth._demo_logins.clear()
     return FAKE_USERS

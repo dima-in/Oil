@@ -53,6 +53,12 @@ def agent_model() -> str:
     return os.getenv('OIL_AGENT_MODEL') or 'google/gemini-2.5-flash'
 
 
+def agent_protocol() -> str:
+    """tools — нативный tool calling (OpenAI tools / tool_calls; шлюз novpnai пробрасывает их
+    клиенту с gateway_tools=false); json — запасной протокол через текст {"tool": …}."""
+    return 'json' if (os.getenv('OIL_AGENT_PROTOCOL') or '').strip().lower() == 'json' else 'tools'
+
+
 class AssistantUnavailable(Exception):
     pass
 
@@ -335,14 +341,16 @@ def tool_customer_card(args: dict) -> dict:
 
 def tool_orders(args: dict) -> dict:
     limit = min(_arg_int(args, 'limit', required=False) or 30, 50)
+    # Модели присылают и true, и "true"/"false" строкой — "false" не должно стать True.
+    open_only = args.get('open_only') in (True, 1) or str(args.get('open_only')).lower() in ('true', '1', 'yes', 'да')
     orders = crm.list_orders(
         status=args.get('status'),
-        open_only=bool(args.get('open_only')),
+        open_only=open_only,
         ship_from=args.get('ship_from'),
         ship_to=args.get('ship_to'),
         customer_id=_arg_int(args, 'customer_id', required=False),
         query=(args.get('query') or None),
-        order_by='ship' if args.get('open_only') else 'recent',
+        order_by='ship' if open_only else 'recent',
         limit=limit,
     )
     return {'orders': [_order_brief(o) for o in orders], 'count': len(orders)}
@@ -748,6 +756,101 @@ TOOLS: Dict[str, ToolSpec] = {
 }
 
 
+# ── tool schemas (native tool calling) ───────────────────────────────────────
+# Подмножество JSON Schema, которое понимают все провайдеры (в т.ч. Gemini через OpenRouter):
+# type / properties / required / items / enum / description, без oneOf и additionalProperties.
+
+def _obj(required=(), **properties) -> dict:
+    schema = {'type': 'object', 'properties': properties}
+    if required:
+        schema['required'] = list(required)
+    return schema
+
+
+def _s(description='') -> dict:
+    return {'type': 'string', 'description': description} if description else {'type': 'string'}
+
+
+def _i(description='') -> dict:
+    return {'type': 'integer', 'description': description} if description else {'type': 'integer'}
+
+
+def _n(description='') -> dict:
+    return {'type': 'number', 'description': description} if description else {'type': 'number'}
+
+
+DATE = 'дата ГГГГ-ММ-ДД'
+CUSTOMER_FIELDS_SCHEMA = dict(
+    name=_s('имя'), surname=_s('фамилия'), phone=_s('телефон'), address=_s('адрес'), email=_s(),
+    source=_s('откуда клиент: Avito, Ozon, сарафан…'), tags=_s('теги через запятую'), note=_s('заметка'),
+)
+
+TOOL_SCHEMAS = {
+    'sql': _obj(['query'], query=_s('один SELECT (MySQL 8) по схеме из системного сообщения, без «;»')),
+    'dashboard': _obj(),
+    'find_customers': _obj(['query'], query=_s('имя, фамилия, телефон, тег или адрес')),
+    'customer_card': _obj(['customer_id'], customer_id=_i()),
+    'orders': _obj(
+        status=_i('код статуса'), open_only={'type': 'boolean', 'description': 'только открытые'},
+        ship_from=_s(f'отгрузка с, {DATE}'),
+        ship_to=_s(f'отгрузка по, {DATE}'), customer_id=_i(), query=_s('поиск по имени, телефону, комментарию'),
+        limit=_i('сколько заказов вернуть, до 50'),
+    ),
+    'order': _obj(['order_id'], order_id=_i()),
+    'price_list': _obj(),
+    'stock': _obj(),
+    'production_needs': _obj(days=_i('горизонт в днях, по умолчанию 14')),
+    'production_plan': _obj(['oil_name', 'volume'], oil_name=_s('масло'), volume=_s('объём: «5 л», «750 мл»')),
+    'production_schedule': _obj(days=_i('горизонт в днях, по умолчанию 14')),
+    'tasks': _obj(status={'type': 'string', 'enum': ['open', 'done', 'all']}),
+    'expenses': _obj(date_from=_s(DATE), date_to=_s(DATE)),
+    'create_order': _obj(
+        ['items'],
+        customer_id=_i('id существующего клиента — если нашёлся через find_customers'),
+        customer=_obj(['name'], **{key: CUSTOMER_FIELDS_SCHEMA[key]
+                                   for key in ('name', 'surname', 'phone', 'address', 'email', 'source')}),
+        items={'type': 'array', 'items': _obj(
+            ['oil_name', 'volume', 'count'],
+            oil_name=_s('название точно как в прайсе'), volume=_i('объём бутылки в мл, как в прайсе'),
+            count=_i('сколько бутылок'), price=_n('цена бутылки, если отличается от прайса'),
+        )},
+        shipping_date=_s(f'дата отгрузки, {DATE}'), status=_i('код статуса, по умолчанию «новый»'),
+        note=_s('комментарий: время, доставка, пожелания'),
+    ),
+    'update_order': _obj(['order_id'], order_id=_i(), status=_i('новый код статуса'),
+                         shipping_date=_s(f'новая дата отгрузки, {DATE}'), note=_s('комментарий')),
+    'create_task': _obj(['title'], title=_s(), due_date=_s(DATE), priority=_i('0 низкий, 1 обычный, 2 важный'),
+                        customer_id=_i(), order_id=_i(), details=_s()),
+    'complete_task': _obj(['task_id'], task_id=_i()),
+    'create_customer': _obj(['name'], **CUSTOMER_FIELDS_SCHEMA),
+    'update_customer': _obj(['customer_id', 'fields'], customer_id=_i(),
+                            fields=_obj(**CUSTOMER_FIELDS_SCHEMA)),
+    'add_customer_note': _obj(['customer_id', 'text'], customer_id=_i(), text=_s(),
+                              kind={'type': 'string', 'enum': ['note', 'call', 'message', 'meeting']}),
+    'add_expense': _obj(
+        ['item_name'], expense_date=_s(DATE), item_name=_s('на что потрачено'), weight_kg=_n(),
+        price_per_kg=_n(), goods_total=_n('сумма за товар'), delivery_cost=_n(), carsharing_cost=_n(), note=_s(),
+    ),
+    'add_production_batch': _obj(
+        ['oil_name'], batch_date=_s(DATE), oil_name=_s(), seed_weight_kg=_n('кг семян в закладке'),
+        seed_price_per_kg=_n(), yield_percent=_n(), output_volume_ml=_n(), labor_cost=_n(), packaging_cost=_n(),
+        other_cost=_n(), note=_s(),
+    ),
+}
+
+
+def tool_schemas() -> List[dict]:
+    tools = []
+    for name, spec in TOOLS.items():
+        description = spec['help']
+        if spec['kind'] == 'write':
+            description += '. Не записывает сразу: создаёт черновик, пользователь подтверждает его кнопкой'
+        tools.append({'type': 'function', 'function': {
+            'name': name, 'description': description, 'parameters': TOOL_SCHEMAS.get(name, _obj()),
+        }})
+    return tools
+
+
 # ── prompt ───────────────────────────────────────────────────────────────────
 
 _schema_cache: Dict[str, dict] = {}
@@ -817,7 +920,27 @@ def _context_text(context: Optional[dict]) -> str:
     return '\n'.join(parts)
 
 
-def build_system_prompt(context: Optional[dict] = None, today: Optional[date] = None) -> str:
+def _protocol_text(protocol: str) -> str:
+    if protocol == 'tools':
+        return (
+            'Инструменты подключены как функции (function calling) — вызывай их напрямую, они доступны '
+            'всегда. Можно несколько вызовов подряд и несколько за один шаг. Чтение (sql, dashboard, '
+            'find_customers, orders, stock, production_schedule…) выполняется сразу; изменения (create_*, '
+            'update_*, add_*, complete_task) создают черновик, который пользователь подтверждает кнопкой. '
+            'Когда данных достаточно — ответь пользователю обычным текстом.'
+        )
+    return f"""Инструменты:
+{_tools_text()}
+
+ФОРМАТ. Каждый твой ответ — РОВНО ОДИН JSON-объект без текста вокруг:
+- вызвать инструмент: {{"tool": "имя", "args": {{...}}}}
+- ответить пользователю: {{"reply": "текст ответа"}}
+После вызова ты получишь «РЕЗУЛЬТАТ ИНСТРУМЕНТА» и сделаешь следующий шаг. Можно несколько шагов подряд."""
+
+
+def build_system_prompt(context: Optional[dict] = None, today: Optional[date] = None,
+                        protocol: Optional[str] = None) -> str:
+    protocol = protocol or agent_protocol()
     today = today or date.today()
     days = ', '.join(
         f"{WEEKDAYS[(today + timedelta(days=i)).weekday()]} {(today + timedelta(days=i)).isoformat()}"
@@ -867,13 +990,7 @@ def build_system_prompt(context: Optional[dict] = None, today: Optional[date] = 
 {describe_schema()}
 {SCHEMA_NOTES.format(status_rules=status_rules)}
 
-Инструменты:
-{_tools_text()}
-
-ФОРМАТ. Каждый твой ответ — РОВНО ОДИН JSON-объект без текста вокруг:
-- вызвать инструмент: {{"tool": "имя", "args": {{...}}}}
-- ответить пользователю: {{"reply": "текст ответа"}}
-После вызова ты получишь «РЕЗУЛЬТАТ ИНСТРУМЕНТА» и сделаешь следующий шаг. Можно несколько шагов подряд.
+{_protocol_text(protocol)}
 
 ПРАВИЛА:
 1. Любые цифры, имена, статусы — только из результатов инструментов. Не выдумывай. Нет данных — так и скажи.
@@ -905,29 +1022,41 @@ def _content_text(content) -> str:
     return str(content or '')
 
 
-def call_llm(messages: List[dict]) -> str:
+def call_llm_message(messages: List[dict], tools: Optional[List[dict]] = None,
+                     tool_choice: Optional[str] = None) -> dict:
+    """Один вызов модели; возвращает message целиком (content и, если есть, tool_calls)."""
     api_key = os.getenv('OPENROUTER_API_KEY')
     if not api_key:
         raise AssistantUnavailable('ИИ-помощник выключен: на сервере не задан OPENROUTER_API_KEY')
+    payload = {
+        'model': agent_model(),
+        'messages': messages,
+        'temperature': 0.2,
+        'max_tokens': 2000,
+        'stream': False,
+        # Поля шлюза novpnai (остальные провайдеры их игнорируют): без веб-поиска и
+        # памяти чатов — у агента свои данные, чужой контекст только мешает.
+        'use_web': False,
+        'use_rag': False,
+    }
+    if tools:
+        payload['tools'] = tools
+        payload['tool_choice'] = tool_choice or 'auto'
+        # Только наши инструменты: «сделать файл» и «нарисовать» шлюза здесь лишние и сбивают модель.
+        payload['gateway_tools'] = False
     response = requests.post(
         llm_url(),
         headers={'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'},
-        json={
-            'model': agent_model(),
-            'messages': messages,
-            'temperature': 0.2,
-            'max_tokens': 2000,
-            'stream': False,
-            # Поля шлюза novpnai (остальные провайдеры их игнорируют): без веб-поиска и
-            # памяти чатов — у агента свои данные, чужой контекст только мешает.
-            'use_web': False,
-            'use_rag': False,
-        },
+        json=payload,
         timeout=(10, 90),
     )
     response.raise_for_status()
     data = response.json()
-    return _content_text(data['choices'][0]['message'].get('content'))
+    return data['choices'][0].get('message') or {}
+
+
+def call_llm(messages: List[dict]) -> str:
+    return _content_text(call_llm_message(messages).get('content'))
 
 
 def first_json_object(raw: str, keys=None) -> Optional[dict]:
@@ -1087,40 +1216,89 @@ def _preview(result: dict) -> str:
     return 'готово'
 
 
-def run_agent(messages, user: dict, context: Optional[dict] = None) -> dict:
-    convo = [{'role': 'system', 'content': build_system_prompt(context)}] + _history(messages)
-    turn = {'actions': [], 'tables': [], 'trace': []}
-    deadline = time.time() + TURN_DEADLINE_SECONDS
-    reply = None
+def _execute(name: str, args, user: dict, turn: dict) -> str:
+    """Выполнить инструмент, записать шаг в трассу и вернуть наблюдение для модели."""
+    result = run_tool(name, args, user, turn)
+    turn['trace'].append({'tool': name, 'title': TOOLS.get(name, {}).get('title', name),
+                          'args': args, 'ok': 'error' not in result, 'preview': _preview(result)})
+    observation = _dump(result)
+    if len(observation) > OBSERVATION_LIMIT:
+        observation = observation[:OBSERVATION_LIMIT] + '… (обрезано — сузь запрос, если нужно больше)'
+    return observation
 
+
+def _json_loop(convo: List[dict], user: dict, turn: dict, deadline: float) -> str:
+    """Запасной протокол: модель пишет {"tool": …} / {"reply": …} текстом."""
     for _ in range(MAX_STEPS):
         raw = call_llm(convo)
         decision = parse_decision(raw)
         if decision is None:
-            reply = raw.strip()
-            break
+            return raw.strip()
         if not decision.get('tool'):
-            reply = str(decision.get('reply') or '').strip()
-            break
-
+            return str(decision.get('reply') or '').strip()
         name, args = str(decision['tool']), decision.get('args') or {}
-        result = run_tool(name, args, user, turn)
-        turn['trace'].append({'tool': name, 'title': TOOLS.get(name, {}).get('title', name),
-                              'args': args, 'ok': 'error' not in result, 'preview': _preview(result)})
+        observation = _execute(name, args, user, turn)
         convo.append({'role': 'assistant', 'content': _dump({'tool': name, 'args': args})})
-        observation = _dump(result)
-        if len(observation) > OBSERVATION_LIMIT:
-            observation = observation[:OBSERVATION_LIMIT] + '… (обрезано — сузь запрос, если нужно больше)'
         convo.append({'role': 'user', 'content': f'РЕЗУЛЬТАТ ИНСТРУМЕНТА {name}:\n{observation}'})
         if time.time() > deadline:
             break
+    convo.append({'role': 'user', 'content': 'Шаги закончились. Сейчас же дай итоговый ответ пользователю '
+                                             'по уже полученным данным: {"reply": "..."}'})
+    raw = call_llm(convo)
+    decision = parse_decision(raw)
+    return str(decision.get('reply') or '').strip() if decision and not decision.get('tool') else raw.strip()
 
-    if reply is None:
-        convo.append({'role': 'user', 'content': 'Шаги закончились. Сейчас же дай итоговый ответ пользователю '
-                                                 'по уже полученным данным: {"reply": "..."}'})
-        raw = call_llm(convo)
-        decision = parse_decision(raw)
-        reply = str(decision.get('reply') or '').strip() if decision and not decision.get('tool') else raw.strip()
+
+def _native_loop(convo: List[dict], user: dict, turn: dict, deadline: float) -> str:
+    """Нативный tool calling: модель возвращает tool_calls, мы отвечаем сообщениями role=tool."""
+    tools = tool_schemas()
+    for _ in range(MAX_STEPS):
+        message = call_llm_message(convo, tools=tools)
+        calls = [call for call in (message.get('tool_calls') or []) if isinstance(call, dict)]
+        content = _content_text(message.get('content')).strip()
+        if not calls:
+            # Некоторые модели всё равно пишут вызов текстом — понимаем и такой.
+            decision = parse_decision(content)
+            if decision and decision.get('tool'):
+                name, args = str(decision['tool']), decision.get('args') or {}
+                observation = _execute(name, args, user, turn)
+                convo.append({'role': 'assistant', 'content': content})
+                convo.append({'role': 'user', 'content': f'РЕЗУЛЬТАТ ИНСТРУМЕНТА {name}:\n{observation}'})
+                continue
+            return str(decision.get('reply') or '').strip() if decision and 'reply' in decision else content
+
+        assistant_message = {'role': 'assistant', 'content': content or None, 'tool_calls': calls}
+        if message.get('reasoning_details'):
+            # Gemini 3 без своих «подписей мысли» отвергает продолжение после вызова.
+            assistant_message['reasoning_details'] = message['reasoning_details']
+        convo.append(assistant_message)
+        for call in calls:
+            function = call.get('function') or {}
+            name = str(function.get('name') or '')
+            raw_args = function.get('arguments')
+            try:
+                args = json.loads(raw_args) if isinstance(raw_args, str) and raw_args.strip() else (raw_args or {})
+            except ValueError:
+                args = None
+            observation = (_dump({'error': 'arguments — не JSON-объект, повтори вызов'}) if args is None
+                           else _execute(name, args, user, turn))
+            convo.append({'role': 'tool', 'tool_call_id': call.get('id') or name, 'name': name,
+                          'content': observation})
+        if time.time() > deadline:
+            break
+    convo.append({'role': 'user', 'content': 'Шаги закончились. Ответь пользователю текстом по уже '
+                                             'полученным данным, без новых вызовов.'})
+    message = call_llm_message(convo, tools=tools, tool_choice='none')
+    return _content_text(message.get('content')).strip()
+
+
+def run_agent(messages, user: dict, context: Optional[dict] = None) -> dict:
+    protocol = agent_protocol()
+    convo = [{'role': 'system', 'content': build_system_prompt(context, protocol=protocol)}] + _history(messages)
+    turn = {'actions': [], 'tables': [], 'trace': []}
+    deadline = time.time() + TURN_DEADLINE_SECONDS
+    loop = _native_loop if protocol == 'tools' else _json_loop
+    reply = loop(convo, user, turn, deadline)
 
     if not reply:
         reply = 'Подготовил черновики — проверьте карточки ниже.' if turn['actions'] else 'Не смог сформулировать ответ.'

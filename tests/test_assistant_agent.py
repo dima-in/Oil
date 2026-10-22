@@ -10,8 +10,9 @@ USER = {'id': 1, 'username': 'oilpress', 'role': 'admin'}
 
 @pytest.fixture
 def agent(monkeypatch):
-    """Агент без базы и без сети: промпт — заглушка, модель отвечает по сценарию."""
-    monkeypatch.setattr(assistant, 'build_system_prompt', lambda context=None: 'system')
+    """Агент без базы и без сети (запасной JSON-протокол): промпт — заглушка, модель по сценарию."""
+    monkeypatch.setenv('OIL_AGENT_PROTOCOL', 'json')
+    monkeypatch.setattr(assistant, 'build_system_prompt', lambda context=None, protocol=None: 'system')
     saved = []
 
     def save(user, tool, args, summary):
@@ -137,3 +138,84 @@ def test_parse_order_text_resolves_items_and_customer(monkeypatch):
     assert draft['shipping_date'] == '2026-10-24'
     assert draft['note'] == 'после 18'
     assert draft['warnings'] == ['Товара «оливковое» нет в прайс-листе']
+
+
+# ── нативный tool calling (основной режим) ───────────────────────────────────
+
+def tool_call(call_id, name, args):
+    return {'id': call_id, 'type': 'function', 'function': {'name': name, 'arguments': json.dumps(args)}}
+
+
+@pytest.fixture
+def native(monkeypatch):
+    monkeypatch.delenv('OIL_AGENT_PROTOCOL', raising=False)
+    monkeypatch.setattr(assistant, 'build_system_prompt', lambda context=None, protocol=None: 'system')
+    monkeypatch.setattr(assistant, 'save_pending_action', lambda user, tool, args, summary: {
+        'id': 'act1', 'tool': tool, 'summary': summary, 'status': 'pending',
+        'title': assistant.TOOLS[tool]['title']})
+
+    def run(script):
+        replies = iter(script)
+        sent = []
+
+        def fake(messages, tools=None, tool_choice=None):
+            sent.append({'messages': list(messages), 'tools': tools, 'tool_choice': tool_choice})
+            return next(replies)
+
+        monkeypatch.setattr(assistant, 'call_llm_message', fake)
+        return assistant.run_agent([{'role': 'user', 'content': 'вопрос'}], USER), sent
+
+    return run
+
+
+def test_tool_schemas_cover_every_tool():
+    schemas = {tool['function']['name']: tool for tool in assistant.tool_schemas()}
+    assert set(schemas) == set(assistant.TOOLS)
+    assert schemas['sql']['function']['parameters']['required'] == ['query']
+    assert 'черновик' in schemas['create_order']['function']['description']
+    assert 'черновик' not in schemas['stock']['function']['description']
+
+
+def test_native_tool_calls_round_trip(native, monkeypatch):
+    monkeypatch.setitem(assistant.TOOLS['stock'], 'run', lambda args: {'stock': [{'oil_name': 'льняное'}]})
+    monkeypatch.setitem(assistant.TOOLS['create_task'], 'prepare',
+                        lambda args: ({'title': args['title']}, f"Задача «{args['title']}»"))
+    result, sent = native([
+        {'content': None, 'tool_calls': [tool_call('c1', 'stock', {}),
+                                         tool_call('c2', 'create_task', {'title': 'Отжать лён'})],
+         'reasoning_details': [{'type': 'reasoning.encrypted', 'data': 'x'}]},
+        {'content': 'Льняное есть. Подготовил задачу — подтвердите.'},
+    ])
+
+    assert result['reply'] == 'Льняное есть. Подготовил задачу — подтвердите.'
+    assert [step['tool'] for step in result['trace']] == ['stock', 'create_task']
+    assert [action['tool'] for action in result['actions']] == ['create_task']
+    first, second = sent
+    assert first['tools'] and first['tool_choice'] is None
+    follow_up = second['messages']
+    assistant_msg = follow_up[-3]
+    assert assistant_msg['role'] == 'assistant' and len(assistant_msg['tool_calls']) == 2
+    assert assistant_msg['reasoning_details']  # подписи мысли возвращаются как есть
+    assert [(m['role'], m['tool_call_id']) for m in follow_up[-2:]] == [('tool', 'c1'), ('tool', 'c2')]
+    assert 'льняное' in follow_up[-2]['content']
+
+
+def test_native_bad_arguments_and_text_fallback(native, monkeypatch):
+    monkeypatch.setitem(assistant.TOOLS['stock'], 'run', lambda args: {'stock': []})
+    bad = {'id': 'c1', 'type': 'function', 'function': {'name': 'stock', 'arguments': '{не json'}}
+    result, sent = native([
+        {'content': '', 'tool_calls': [bad]},
+        {'content': '{"tool": "stock", "args": {}}'},  # модель перешла на текстовый вызов
+        {'content': 'Готово'},
+    ])
+    assert 'не JSON' in sent[1]['messages'][-1]['content']
+    assert sent[2]['messages'][-1]['content'].startswith('РЕЗУЛЬТАТ ИНСТРУМЕНТА stock')
+    assert result['reply'] == 'Готово'
+
+
+def test_native_steps_exhausted_asks_without_new_calls(native, monkeypatch):
+    monkeypatch.setitem(assistant.TOOLS['stock'], 'run', lambda args: {'stock': []})
+    looping = {'content': None, 'tool_calls': [tool_call('c', 'stock', {})]}
+    result, sent = native([looping] * assistant.MAX_STEPS + [{'content': 'Итог'}])
+    assert result['reply'] == 'Итог'
+    assert sent[-1]['tool_choice'] == 'none'

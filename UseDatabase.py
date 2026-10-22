@@ -54,16 +54,19 @@ class UseDatabase:
         except mysql.connector.errors.ProgrammingError as err:
             raise ConnectionError(err)
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        self.conn.commit()
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        # При ошибке откатываем: половина заказа без позиций хуже, чем ничего.
+        if exc_type:
+            self.conn.rollback()
+        else:
+            self.conn.commit()
         self.cursor.close()
         self.conn.close()
         """
         Если возникло ProgrammingError-возбудить SQLError.
-        Возбудить исключение после выполнения 
-        кода метода __exit__ 
+        Остальные исключения пробрасываются как есть — с исходным текстом и трассировкой
+        (пересоздание exc_type(exc_val) теряло сообщение у ошибок MySQL).
         """
         if exc_type is mysql.connector.errors.ProgrammingError:
             raise SQLError(exc_val)
-        elif exc_type:
-            raise exc_type(exc_val)
+        return False

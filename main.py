@@ -1,6 +1,5 @@
+import logging
 import math
-import re
-import secrets
 from datetime import date, datetime, timedelta
 import os
 from pathlib import Path
@@ -10,11 +9,14 @@ import requests
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
 from starlette.responses import RedirectResponse
 from starlette.staticfiles import StaticFiles
 
+import assistant
+import auth
+import crm
+from auth import get_current_user
 from Catalog import add_price_data_to_table, get_oil_catalog, load_pricelist_from_pdf
 from Customer import Customer
 from Database import (
@@ -54,57 +56,9 @@ from Database import (
 from mysql.connector import Error as DatabaseError
 from OilOrder import OilOrder
 from OrderItem import OrderItem
+from sql_safety import validate_sql_query
 
-
-def validate_sql_query(query: str) -> bool:
-    """Return whether *query* is a single, read-only SELECT statement."""
-    if not isinstance(query, str):
-        return False
-
-    stripped_query = query.strip()
-    # Requiring a word boundary prevents values such as ``SELECTED`` from
-    # being treated as a SELECT statement.  Comments before the statement are
-    # deliberately not accepted, so a second statement cannot be hidden in a
-    # comment/prefix accepted by the validator.
-    if not re.match(r"\ASELECT\b", stripped_query, re.IGNORECASE):
-        return False
-    if ";" in stripped_query:
-        return False
-
-    # Ignore quoted literals while looking for write/DDL keywords.  A value
-    # such as 'drop' is data, not an instruction, and must not make a valid
-    # SELECT fail validation.
-    without_literals = re.sub(
-        r"'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"",
-        " ",
-        stripped_query,
-    )
-    # Reject MySQL comments so dangerous tokens cannot be hidden between
-    # keywords (for example, INTO/**/OUTFILE or FOR/**/UPDATE).
-    if re.search(r"--|#|/\*|\*/", without_literals):
-        return False
-
-    forbidden_keywords = (
-        "INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE",
-        "TRUNCATE", "REPLACE", "GRANT", "REVOKE", "CALL", "LOAD",
-    )
-    if any(
-        re.search(r"\b" + keyword + r"\b", without_literals, re.IGNORECASE)
-        for keyword in forbidden_keywords
-    ):
-        return False
-
-    # MySQL permits SELECT forms that can still mutate state or write files.
-    # Treat those as non-read-only even though they start with SELECT.
-    unsafe_select_clauses = (
-        r"\bINTO\s+(?:OUTFILE|DUMPFILE)\b",
-        r"\bFOR\s+UPDATE\b",
-        r"\bLOCK\s+IN\s+SHARE\s+MODE\b",
-    )
-    return not any(
-        re.search(pattern, without_literals, re.IGNORECASE)
-        for pattern in unsafe_select_clauses
-    )
+log = logging.getLogger('oilpress')
 
 
 def execute_safe_sql(query: str, params: tuple = None):
@@ -194,7 +148,7 @@ def generate_sql_from_question(question: str) -> str:
         headers["Authorization"] = f"Bearer {api_key}"
 
     response = requests.post(
-        os.getenv("OIL_LLM_URL", "https://novpnai.ru/v1/chat/completions"),
+        os.getenv("OIL_LLM_URL") or "https://novpnai.ru/v1/chat/completions",
         json=payload,
         headers=headers,
         timeout=60,
@@ -231,24 +185,25 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory='templates')
-security = HTTPBasic()
+app.include_router(auth.router)
+app.include_router(crm.router)
+app.include_router(assistant.router)
 
 
-def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
-    correct_username = "oilpress"
-    correct_password = "MarshallJCM800"
+@app.on_event('startup')
+def prepare_database():
+    # Схема досоздаётся и лениво при первом обращении, поэтому недоступная на старте
+    # база не роняет приложение — только пишем в лог.
+    try:
+        auth.ensure_auth_schema()
+        crm.ensure_crm_schema()
+        assistant.ensure_assistant_schema()
+    except Exception as error:  # noqa: BLE001
+        log.warning('database is not ready at startup: %s', error)
 
-    is_correct_username = secrets.compare_digest(credentials.username, correct_username)
-    is_correct_password = secrets.compare_digest(credentials.password, correct_password)
 
-    if not (is_correct_username and is_correct_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-
-    return credentials.username
+def get_current_username(user: dict = Depends(get_current_user)):
+    return user['username']
 
 
 def parse_date_or_none(value: Optional[str]):
@@ -559,14 +514,14 @@ async def show_orders(request: Request, current_username: str = Depends(get_curr
     return templates.TemplateResponse('viewallorder.html', context)
 
 
-@app.get('/view-orders')
+@app.get('/view-orders', dependencies=[Depends(get_current_username)])
 def show_orders_public(request: Request):
     order = select_all_orders()
     context = {'request': request, 'title': "Начальная страница", 'order': order}
     return templates.TemplateResponse('vieworder.html', context)
 
 
-@app.post('/delete-order')
+@app.post('/delete-order', dependencies=[Depends(get_current_username)])
 async def delite_order(request: Request):
     form_data = await request.form()
     order_id = int(form_data.get('id_to_delete'))
@@ -729,7 +684,7 @@ def analytics_assistant(question: str = Body(..., embed=True), username: str = D
     )
     try:
         response = requests.post(
-            os.getenv('OIL_LLM_URL', 'https://novpnai.ru/v1/chat/completions'),
+            os.getenv('OIL_LLM_URL') or 'https://novpnai.ru/v1/chat/completions',
             headers={
                 'Authorization': f'Bearer {openrouter_api_key}',
                 'Content-Type': 'application/json'
@@ -754,7 +709,7 @@ def analytics_assistant(question: str = Body(..., embed=True), username: str = D
     return {'answer': answer, 'sql': sql_query, 'rows_count': len(rows)}
 
 
-@app.get('/api/analytics/customers')
+@app.get('/api/analytics/customers', dependencies=[Depends(get_current_username)])
 def get_customer_analytics(start_date: Optional[str] = None, end_date: Optional[str] = None):
     """
     Возвращает аналитику по клиентам: выручка, количество заказов.
@@ -802,7 +757,7 @@ def get_customer_analytics(start_date: Optional[str] = None, end_date: Optional[
     ]
 
 
-@app.get('/api/analytics/products')
+@app.get('/api/analytics/products', dependencies=[Depends(get_current_username)])
 def get_product_analytics(start_date: Optional[str] = None, end_date: Optional[str] = None):
     """
     Возвращает аналитику по товарам: проданные единицы, выручка.
@@ -847,7 +802,7 @@ def get_product_analytics(start_date: Optional[str] = None, end_date: Optional[s
     ]
 
 
-@app.get('/api/analytics/summary')
+@app.get('/api/analytics/summary', dependencies=[Depends(get_current_username)])
 def get_summary_analytics(start_date: Optional[str] = None, end_date: Optional[str] = None):
     """
     Возвращает общую аналитику: суммарная выручка, количество заказов.
@@ -1231,18 +1186,26 @@ async def api_delete_order(order_id: int, current_username: str = Depends(get_cu
     raise HTTPException(status_code=404, detail="Заказ не найден")
 
 
+def _asset_version() -> str:
+    # Метка сборки в ссылке на бандл: после деплоя браузер берёт новый JS, а не кэш.
+    try:
+        return str(int(os.path.getmtime('static/index.js')))
+    except OSError:
+        return 'dev'
+
+
 @app.get('/')
-@app.get('/quick-order')
-@app.get('/quick-order/')
-@app.get('/orders')
-@app.get('/orders/')
-@app.get('/admin')
-@app.get('/admin/')
-@app.get('/app')
-@app.get('/app/')
-@app.get('/app/{path:path}')
+@app.get('/{path:path}')
 def serve_frontend(request: Request, path: str = ""):
-    return templates.TemplateResponse('index.html', {"request": request})
+    # Все адреса интерфейса (React Router) отдают одну страницу; старые HTML-страницы
+    # и /api объявлены выше и сюда не попадают.
+    if path.startswith('api/') or path == 'api':
+        raise HTTPException(status_code=404, detail='Not Found')
+    return templates.TemplateResponse(
+        'index.html',
+        {"request": request, "asset_version": _asset_version()},
+        headers={'Cache-Control': 'no-cache'},
+    )
 
 
 if __name__ == '__main__':

@@ -30,6 +30,10 @@ def _add_column_if_missing(cursor, table_name, column_name, column_definition):
 
 
 async def create_tables():
+    create_tables_sync()
+
+
+def create_tables_sync():
     with UseDatabase(config) as cursor:
         cursor.execute("""CREATE TABLE IF NOT EXISTS customers (
                             id INT PRIMARY KEY AUTO_INCREMENT,

@@ -107,6 +107,7 @@ export const api = {
     updateSettings: (payload) => request('/crm/settings', { method: 'PATCH', json: payload }),
     productionSchedule: (days) => request(`/crm/production-schedule${query({ days })}`),
     revenueByMonth: (months) => request(`/crm/revenue-by-month${query({ months })}`),
+    economics: () => request('/crm/economics'),
     order: (id) => request(`/crm/orders/${id}`),
     updateOrder: (id, payload) => request(`/crm/orders/${id}`, { method: 'PATCH', json: payload }),
     customers: (q) => request(`/crm/customers${query({ q })}`),

@@ -128,6 +128,10 @@ def create_tables_sync():
         _add_column_if_missing(cursor, 'order_details', 'seed_cost', 'FLOAT NOT NULL DEFAULT 0')
         _add_column_if_missing(cursor, 'order_details', 'revenue', 'FLOAT NOT NULL DEFAULT 0')
         _add_column_if_missing(cursor, 'order_details', 'profit', 'FLOAT NOT NULL DEFAULT 0')
+        # Нормы себестоимости масла (из листа «Прайс» старой таблицы): цена семян и «получка»
+        # — сколько владелец закладывает себе за одну закладку.
+        _add_column_if_missing(cursor, 'production_profiles', 'seed_price_per_kg', 'FLOAT NULL')
+        _add_column_if_missing(cursor, 'production_profiles', 'labor_per_batch', 'FLOAT NULL')
 
 
 async def insert_statuses_to_database():
@@ -484,7 +488,9 @@ def list_production_profiles():
                     batch_seed_weight_kg,
                     yield_percent,
                     daily_batch_limit,
-                    note
+                    note,
+                    seed_price_per_kg,
+                    labor_per_batch
                FROM production_profiles
                ORDER BY oil_name ASC"""
         )
@@ -496,23 +502,31 @@ def list_production_profiles():
                 'yield_percent': row[3],
                 'daily_batch_limit': row[4],
                 'note': row[5],
+                'seed_price_per_kg': row[6],
+                'labor_per_batch': row[7],
             }
             for row in cursor.fetchall()
         ]
 
 
-def upsert_production_profile(oil_name, batch_seed_weight_kg, yield_percent, daily_batch_limit, note):
+def upsert_production_profile(oil_name, batch_seed_weight_kg, yield_percent, daily_batch_limit, note,
+                              seed_price_per_kg=None, labor_per_batch=None):
+    # None в цене семян и «получке» — не трогать то, что уже записано.
     with UseDatabase(config) as cursor:
         cursor.execute(
             """INSERT INTO production_profiles (
-                    oil_name, batch_seed_weight_kg, yield_percent, daily_batch_limit, note
-               ) VALUES (%s, %s, %s, %s, %s)
+                    oil_name, batch_seed_weight_kg, yield_percent, daily_batch_limit, note,
+                    seed_price_per_kg, labor_per_batch
+               ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                ON DUPLICATE KEY UPDATE
                     batch_seed_weight_kg = VALUES(batch_seed_weight_kg),
                     yield_percent = VALUES(yield_percent),
                     daily_batch_limit = VALUES(daily_batch_limit),
-                    note = VALUES(note)""",
-            (oil_name, batch_seed_weight_kg, yield_percent, daily_batch_limit, note),
+                    note = VALUES(note),
+                    seed_price_per_kg = COALESCE(VALUES(seed_price_per_kg), seed_price_per_kg),
+                    labor_per_batch = COALESCE(VALUES(labor_per_batch), labor_per_batch)""",
+            (oil_name, batch_seed_weight_kg, yield_percent, daily_batch_limit, note,
+             seed_price_per_kg, labor_per_batch),
         )
         return cursor.lastrowid
 

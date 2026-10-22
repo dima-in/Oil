@@ -22,6 +22,7 @@ from starlette.concurrency import run_in_threadpool
 
 import crm
 from auth import require_admin
+from Database import list_production_profiles, upsert_production_profile
 from OrderItem import OrderItem
 from UseDatabase import UseDatabase, config
 
@@ -99,6 +100,132 @@ def read_price_sheet(workbook) -> Dict[str, Dict[int, float]]:
             if isinstance(value, (int, float)) and value > 0:
                 prices.setdefault(name, {})[volume] = round(float(value), 2)
     return prices
+
+
+def _header_index(row, *names) -> Optional[int]:
+    wanted = [_norm(name) for name in names]
+    for index, title in enumerate(row):
+        if _norm(title) in wanted:
+            return index
+    return None
+
+
+def _number(value) -> Optional[float]:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return float(str(value).replace(',', '.').replace(' ', '')) if value not in (None, '') else None
+    except ValueError:
+        return None
+
+
+def read_economics(values_book, formulas_book=None) -> dict:
+    """Нормы себестоимости с листа «Прайс»: по маслу — кг в закладке, выход, цена семян, «получка»;
+    общие — доставка семян за кг, бутылка и налог (множитель *1.06 в формуле цены)."""
+    if 'Прайс' not in values_book.sheetnames:
+        return {'oils': [], 'settings': {}}
+    rows = list(values_book['Прайс'].iter_rows(values_only=True))
+    if not rows:
+        return {'oils': [], 'settings': {}}
+    header = rows[0]
+    col = {
+        'kg': _header_index(header, 'кг в закладке'),
+        'seed_price': _header_index(header, 'цена за 1 кг'),
+        'labor': _header_index(header, 'получка за закладку'),
+        'yield_ml': _header_index(header, 'выход масла с закладки'),
+        'delivery': _header_index(header, 'доставка за 1 кг'),
+        'bottle': _header_index(header, 'бутылка'),
+    }
+    if col['kg'] is None or col['yield_ml'] is None:
+        return {'oils': [], 'settings': {}}
+
+    def cell(row, key):
+        index = col[key]
+        return _number(row[index]) if index is not None and index < len(row) else None
+
+    settings, oils = {}, []
+    for row in rows[1:]:
+        name = str(row[0] or '').strip() if row else ''
+        for key, setting in (('delivery', 'seed_delivery_per_kg'), ('bottle', 'bottle_cost')):
+            value = cell(row, key)
+            if value is not None and setting not in settings:
+                settings[setting] = value
+        kg, yield_ml = cell(row, 'kg'), cell(row, 'yield_ml')
+        if not name or not kg or not yield_ml:
+            continue
+        oils.append({
+            'oil_name': name,
+            'kg_per_batch': kg,
+            'yield_ml': yield_ml,
+            'yield_percent': round(yield_ml / (kg * 10), 4),
+            'seed_price_per_kg': cell(row, 'seed_price'),
+            'labor_per_batch': cell(row, 'labor'),
+        })
+    if formulas_book is not None and 'Прайс' in formulas_book.sheetnames:
+        for row in formulas_book['Прайс'].iter_rows(values_only=True):
+            match = next((re.search(r'\)\s*\*\s*1[.,](\d{1,2})\b', value) for value in row
+                          if isinstance(value, str) and value.startswith('=')
+                          and re.search(r'\)\s*\*\s*1[.,]\d{1,2}\b', value)), None)
+            if match:
+                digits = match.group(1)
+                settings['tax_percent'] = float(digits) if len(digits) == 2 else float(digits) * 10
+                break
+    return {'oils': oils, 'settings': settings}
+
+
+def read_expenses(values_book) -> Tuple[List[dict], List[str]]:
+    """Закупки с листа «Прибыль и убыль»: дата, что купили, кг, цена за кг, сумма, доставка, каршеринг.
+    Пустая дата — та же закупка, что строкой выше; строки без наименования (итоги) пропускаются."""
+    if 'Прибыль и убыль' not in values_book.sheetnames:
+        return [], []
+    rows = list(values_book['Прибыль и убыль'].iter_rows(values_only=True))
+    if not rows:
+        return [], []
+    header = rows[0]
+    col = {key: _header_index(header, *names) for key, names in {
+        'date': ('дата',), 'name': ('наименование',), 'kg': ('кг',), 'price': ('цена за 1 кг',),
+        'sum': ('сумма заказа', 'сумма'), 'delivery': ('доставка',), 'carsharing': ('каршеринг',),
+    }.items()}
+    if col['name'] is None or col['sum'] is None:
+        return [], ['Лист «Прибыль и убыль»: не нашёл колонки «наименование» и «сумма заказа»']
+
+    def cell(row, key):
+        index = col[key]
+        return row[index] if index is not None and index < len(row) else None
+
+    expenses, warnings, last_date = [], [], None
+    for number, row in enumerate(rows[1:], start=2):
+        day = _as_date(cell(row, 'date'))
+        if day:
+            last_date = day
+        name = str(cell(row, 'name') or '').strip()
+        if not name:
+            continue
+        kg, price = _number(cell(row, 'kg')) or 0.0, _number(cell(row, 'price')) or 0.0
+        goods = _number(cell(row, 'sum'))
+        goods = goods if goods else kg * price
+        delivery = _number(cell(row, 'delivery')) or 0.0
+        carsharing = _number(cell(row, 'carsharing')) or 0.0
+        if goods + delivery + carsharing <= 0:
+            warnings.append(f'«Прибыль и убыль», стр. {number}: «{name}» без суммы — пропущено')
+            continue
+        if not (day or last_date):
+            warnings.append(f'«Прибыль и убыль», стр. {number}: «{name}» без даты — пропущено')
+            continue
+        expenses.append({
+            'row': number, 'expense_date': day or last_date, 'item_name': name[:200], 'weight_kg': kg,
+            'price_per_kg': price, 'goods_total': goods, 'delivery_cost': delivery, 'carsharing_cost': carsharing,
+        })
+    return expenses, warnings
+
+
+def _expense_key(expense) -> Tuple:
+    day = expense['expense_date']
+    day = day.date() if isinstance(day, datetime) else day
+    return (day, _norm(expense['item_name']), round(float(expense['goods_total'] or 0)),
+            round(float(expense['delivery_cost'] or 0) + float(expense['carsharing_cost'] or 0)))
 
 
 def split_into_bottles(volume_ml: int, sizes: List[int]) -> Optional[List[int]]:
@@ -261,14 +388,17 @@ def parse_workbook(content: bytes, today: Optional[date] = None) -> dict:
         bucket['revenue'] += order['total']
         bucket['bottles'] += sum(item['count'] for item in order['items'])
 
+    expenses, expense_warnings = read_expenses(values_book)
     return {
         'orders': orders,
         'months': [month_totals[key] for key in sorted(month_totals)],
         'skipped_rows': skipped_rows,
         'approx_orders': approx,
         'unpriced_orders': unpriced,
-        'warnings': warnings,
+        'warnings': warnings + expense_warnings,
         'price_source': 'лист «Прайс» из файла' if sheet_prices else 'прайс-лист CRM',
+        'economics': read_economics(values_book, formulas_book),
+        'expenses': expenses,
     }
 
 
@@ -341,9 +471,87 @@ def run_import(content: bytes, commit: bool = False, today: Optional[date] = Non
         'sample': [_preview(order, order['row'] in duplicates) for order in orders[:15]],
         'imported': 0,
     }
-    if commit and fresh:
-        report['imported'] = _write_orders(fresh, existing_customers)
+
+    economics = parsed['economics']
+    report['economics'] = {
+        'oils': [{**oil, 'changed': _norm_changed(oil)} for oil in economics['oils']],
+        'settings': economics['settings'],
+    }
+    existing_expenses = {_expense_key(row) for row in list_expense_rows()}
+    new_expenses = [expense for expense in parsed['expenses'] if _expense_key(expense) not in existing_expenses]
+    report['expenses'] = {
+        'in_file': len(parsed['expenses']),
+        'new': len(new_expenses),
+        'duplicates': len(parsed['expenses']) - len(new_expenses),
+        'total_new': sum(e['goods_total'] + e['delivery_cost'] + e['carsharing_cost'] for e in new_expenses),
+        'rows': [{**expense, 'expense_date': expense['expense_date'].isoformat(),
+                  'duplicate': expense not in new_expenses} for expense in parsed['expenses']],
+    }
+
+    if commit:
+        if fresh:
+            report['imported'] = _write_orders(fresh, existing_customers)
+        report['imported_expenses'] = _write_expenses(new_expenses)
+        report['applied_norms'] = apply_economics(economics)
     return report
+
+
+def list_expense_rows() -> List[dict]:
+    with UseDatabase(config) as cursor:
+        cursor.execute(
+            'SELECT expense_date, item_name, goods_total, delivery_cost, carsharing_cost FROM expense_entries'
+        )
+        return [dict(zip(('expense_date', 'item_name', 'goods_total', 'delivery_cost', 'carsharing_cost'), row))
+                for row in cursor.fetchall()]
+
+
+def _norm_changed(oil: dict) -> bool:
+    """Отличаются ли нормы из файла от того, что уже записано в профиле CRM."""
+    current = {_norm(row['oil_name']): row for row in list_production_profiles()}.get(_norm(oil['oil_name']))
+    if not current:
+        return True
+    pairs = (
+        (current.get('batch_seed_weight_kg'), oil['kg_per_batch']),
+        (current.get('yield_percent'), oil['yield_percent']),
+        (current.get('seed_price_per_kg'), oil['seed_price_per_kg']),
+        (current.get('labor_per_batch'), oil['labor_per_batch']),
+    )
+    return any(new is not None and abs(float(old or 0) - float(new)) > 0.01 for old, new in pairs)
+
+
+def apply_economics(economics: dict) -> int:
+    """Нормы из файла → профили масел (лимит закладок в день и заметку не трогаем) и настройки."""
+    current = {_norm(row['oil_name']): row for row in list_production_profiles()}
+    for oil in economics['oils']:
+        existing = current.get(_norm(oil['oil_name'])) or {}
+        upsert_production_profile(
+            existing.get('oil_name') or oil['oil_name'],
+            oil['kg_per_batch'],
+            oil['yield_percent'],
+            int(existing.get('daily_batch_limit') or 3),
+            existing.get('note'),
+            oil['seed_price_per_kg'],
+            oil['labor_per_batch'],
+        )
+    if economics['settings']:
+        crm.update_settings(economics['settings'])
+    return len(economics['oils'])
+
+
+def _write_expenses(expenses: List[dict]) -> int:
+    if not expenses:
+        return 0
+    with UseDatabase(config) as cursor:
+        for expense in expenses:
+            cursor.execute(
+                """INSERT INTO expense_entries (expense_date, item_name, weight_kg, price_per_kg, goods_total,
+                       delivery_cost, carsharing_cost, note)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                (expense['expense_date'], expense['item_name'], expense['weight_kg'], expense['price_per_kg'],
+                 expense['goods_total'], expense['delivery_cost'], expense['carsharing_cost'],
+                 f"импорт из Excel («Прибыль и убыль», стр. {expense['row']})"),
+            )
+    return len(expenses)
 
 
 def _preview(order: dict, duplicate: bool) -> dict:

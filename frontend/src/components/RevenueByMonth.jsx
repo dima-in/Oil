@@ -37,6 +37,12 @@ export function MonthlyRevenueChart({ rows, note }) {
   const total = rows.reduce((sum, row) => sum + row.revenue, 0)
   const withOrders = rows.filter((row) => row.orders)
   const average = withOrders.length ? total / withOrders.length : 0
+  // Маржа по нормам есть только в данных CRM (у отчёта импорта её нет).
+  const hasMargin = rows.some((row) => row.margin !== undefined)
+  const marginTotal = rows.reduce((sum, row) => sum + (row.margin || 0), 0)
+  const expensesTotal = rows.reduce((sum, row) => sum + (row.expenses || 0), 0)
+  const coveredRevenue = rows.reduce((sum, row) => sum + row.revenue * (row.norms_coverage ?? 0) / 100, 0)
+  const coverage = total ? Math.round((coveredRevenue / total) * 100) : 0
   const hovered = active !== null ? rows[active] : null
   // Подписи месяцев не должны налезать друг на друга: при длинном периоде — через одну-две.
   const labelStep = rows.length > 18 ? 3 : rows.length > 12 ? 2 : 1
@@ -54,6 +60,22 @@ export function MonthlyRevenueChart({ rows, note }) {
           <div className="kpi__label">В среднем за месяц</div>
           <div className="revenue-chart__avg">{money(average)}</div>
         </div>
+        {hasMargin ? (
+          <div>
+            <div className="kpi__label">Маржа по нормам</div>
+            <div className="revenue-chart__avg">{money(marginTotal)}</div>
+            <div className="kpi__hint">
+              {coverage < 100 ? `по ${coverage}% выручки — для остальных масел нет норм` : 'после семян, бутылок и налога'}
+            </div>
+          </div>
+        ) : null}
+        {hasMargin ? (
+          <div>
+            <div className="kpi__label">Записано расходов</div>
+            <div className="revenue-chart__avg">{money(expensesTotal)}</div>
+            <div className="kpi__hint">закупки из «Расходов»</div>
+          </div>
+        ) : null}
         {peak?.revenue ? (
           <div>
             <div className="kpi__label">Лучший месяц</div>
@@ -116,6 +138,9 @@ export function MonthlyRevenueChart({ rows, note }) {
               заказов {hovered.orders}
               {hovered.avg_check ? ` · ср. чек ${money(hovered.avg_check)}` : ''}
             </span>
+            {hovered.margin !== undefined && hovered.revenue ? (
+              <span className="muted">маржа по нормам {money(hovered.margin)}</span>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -133,6 +158,8 @@ export function MonthlyRevenueChart({ rows, note }) {
                 <th className="num">Бутылок</th>
                 <th className="num">Выручка</th>
                 <th className="num">Средний чек</th>
+                {hasMargin ? <th className="num">Маржа по нормам</th> : null}
+                {hasMargin ? <th className="num">Расходы</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -143,6 +170,8 @@ export function MonthlyRevenueChart({ rows, note }) {
                   <td className="num">{row.bottles ?? '—'}</td>
                   <td className="num">{money(row.revenue)}</td>
                   <td className="num">{row.orders ? money(row.avg_check ?? row.revenue / row.orders) : '—'}</td>
+                  {hasMargin ? <td className="num">{row.revenue ? money(row.margin) : '—'}</td> : null}
+                  {hasMargin ? <td className="num">{row.expenses ? money(row.expenses) : '—'}</td> : null}
                 </tr>
               ))}
             </tbody>

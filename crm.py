@@ -43,8 +43,14 @@ DEFAULT_SETTINGS = {
     'press_batches_per_day': 3,
     'work_days': '1,2,3,4,5,6',
     'settle_days': 1,
+    # Переменные затраты на бутылку (как в листе «Прайс» старой таблицы).
+    'bottle_cost': 23,
+    'seed_delivery_per_kg': 50,
+    'tax_percent': 6,
 }
 INT_SETTINGS = {'presses_count': (1, 20), 'press_batches_per_day': (1, 24), 'settle_days': (0, 14)}
+FLOAT_SETTINGS = {'bottle_cost': (0, 100000), 'seed_delivery_per_kg': (0, 100000), 'tax_percent': (0, 50)}
+LOW_MARGIN_PERCENT = 30
 
 INTERACTION_KINDS = {
     'note': 'заметка',
@@ -976,6 +982,11 @@ def get_settings() -> dict:
             settings[key] = max(low, min(int(settings[key]), high))
         except (TypeError, ValueError):
             settings[key] = DEFAULT_SETTINGS[key]
+    for key, (low, high) in FLOAT_SETTINGS.items():
+        try:
+            settings[key] = max(low, min(float(settings[key]), high))
+        except (TypeError, ValueError):
+            settings[key] = float(DEFAULT_SETTINGS[key])
     settings['work_days_list'] = _work_days(settings['work_days'])
     return settings
 
@@ -999,6 +1010,15 @@ def update_settings(data: dict) -> dict:
                 raise CrmError(f'{key}: нужно целое число')
             if not low <= value <= high:
                 raise CrmError(f'{key}: от {low} до {high}')
+        elif key in FLOAT_SETTINGS:
+            low, high = FLOAT_SETTINGS[key]
+            try:
+                value = float(str(value).replace(',', '.'))
+            except (TypeError, ValueError):
+                raise CrmError(f'{key}: нужно число')
+            if not low <= value <= high:
+                raise CrmError(f'{key}: от {low:g} до {high:g}')
+            value = f'{value:g}'
         elif key == 'work_days':
             if isinstance(value, (list, tuple)):
                 value = ','.join(str(day) for day in value)
@@ -1212,41 +1232,170 @@ def production_schedule(days=14, today=None) -> dict:
     }
 
 
+# ── unit economics ───────────────────────────────────────────────────────────
+
+def cost_norms() -> Dict[str, dict]:
+    """Нормы переменных затрат на мл масла по каждому маслу (только где есть закладка и выход).
+
+    seeds_per_ml — семена (кг в закладке × цена кг / мл с закладки), delivery_per_ml — доставка
+    семян, распределённая на мл (а не на каждую бутылку целиком, как в старой таблице).
+    """
+    settings = get_settings()
+    norms = {}
+    for profile in list_production_profiles():
+        kg = float(profile.get('batch_seed_weight_kg') or 0)
+        yield_ml = kg * float(profile.get('yield_percent') or 0) * 10
+        if kg <= 0 or yield_ml <= 0:
+            continue
+        seed_price = float(profile.get('seed_price_per_kg') or 0)
+        labor = float(profile.get('labor_per_batch') or 0)
+        norms[_norm_name(profile['oil_name'])] = {
+            'oil_name': profile['oil_name'],
+            'kg_per_batch': kg,
+            'yield_ml': yield_ml,
+            'seed_price_per_kg': seed_price,
+            'labor_per_batch': labor,
+            'seeds_per_ml': kg * seed_price / yield_ml,
+            'delivery_per_ml': settings['seed_delivery_per_kg'] * kg / yield_ml,
+            'has_seed_price': seed_price > 0,
+        }
+    return norms
+
+
+def line_variable_cost(norm: dict, volume_ml: float, count: int, price: float, settings: dict) -> dict:
+    seeds = norm['seeds_per_ml'] * volume_ml * count
+    delivery = norm['delivery_per_ml'] * volume_ml * count
+    bottle = settings['bottle_cost'] * count
+    tax = price * count * settings['tax_percent'] / 100
+    return {'seeds': seeds, 'delivery': delivery, 'bottle': bottle, 'tax': tax,
+            'total': seeds + delivery + bottle + tax}
+
+
+def unit_economics() -> dict:
+    """Маржа каждой бутылки прайса: цена − семена − доставка семян − бутылка − налог.
+
+    Это то, что остаётся владельцу («получка») до прочих расходов: аренды, каршеринга,
+    комиссий маркетплейсов. Для сравнения — «получка», заложенная нормой за закладку.
+    """
+    settings = get_settings()
+    norms = cost_norms()
+    with UseDatabase(config) as cursor:
+        cursor.execute(
+            """SELECT oil_name, volume, MIN(price) FROM price_list WHERE price > 0
+               GROUP BY oil_name, volume ORDER BY oil_name, volume"""
+        )
+        prices = cursor.fetchall()
+    items, missing, no_seed_price = [], set(), set()
+    for oil_name, volume, price in prices:
+        norm = norms.get(_norm_name(oil_name))
+        if not norm:
+            missing.add(oil_name)
+            continue
+        if not norm['has_seed_price']:
+            no_seed_price.add(oil_name)
+        price = float(price)
+        cost = line_variable_cost(norm, float(volume), 1, price, settings)
+        # Без цены семян маржа выйдет завышенной (80–90%) — не показываем её вовсе.
+        margin = price - cost['total'] if norm['has_seed_price'] else None
+        items.append({
+            'oil_name': oil_name,
+            'volume': int(volume),
+            'price': price,
+            'seeds': round(cost['seeds'], 2),
+            'delivery': round(cost['delivery'], 2),
+            'bottle': round(cost['bottle'], 2),
+            'tax': round(cost['tax'], 2),
+            'cost': round(cost['total'], 2),
+            'margin': round(margin, 2) if margin is not None else None,
+            'margin_percent': round(margin / price * 100, 1) if margin is not None and price else None,
+            'planned_pay': round(norm['labor_per_batch'] / norm['yield_ml'] * float(volume), 2)
+            if norm['labor_per_batch'] else None,
+            'low': margin is not None and price > 0 and margin / price * 100 < LOW_MARGIN_PERCENT,
+        })
+    warnings = []
+    if missing:
+        warnings.append('Нет нормы закладки (кг и выход) для: ' + ', '.join(sorted(missing)))
+    if no_seed_price:
+        warnings.append('Не указана цена семян для: ' + ', '.join(sorted(no_seed_price)))
+    low = [f"{item['oil_name']} {item['volume']} мл ({item['margin_percent']:g}%)" for item in items if item['low']]
+    if low:
+        warnings.append(f'Маржа ниже {LOW_MARGIN_PERCENT}%: ' + ', '.join(low))
+    return {
+        'settings': {key: settings[key] for key in ('bottle_cost', 'seed_delivery_per_kg', 'tax_percent')},
+        'norms': sorted(norms.values(), key=lambda norm: norm['oil_name']),
+        'items': items,
+        'warnings': warnings,
+    }
+
+
 # ── revenue by month ─────────────────────────────────────────────────────────
 
 def revenue_by_month(months=24, today=None) -> List[dict]:
-    """Выручка по месяцам (по дате заказа, без отменённых): заказы, бутылки, выручка, средний чек."""
+    """Выручка по месяцам (по дате заказа, без отменённых): заказы, бутылки, выручка, средний чек,
+    затраты и маржа по нормам («Экономика»), а также записанные расходы — для сравнения."""
     today = today or date.today()
     first_month = today.year * 12 + today.month - 1 - (int(months) - 1)
     start = date(first_month // 12, first_month % 12 + 1, 1)
     not_cancelled_sql, params = _in('o.status', status_ids('cancelled'), negate=True)
+    settings = get_settings()
+    norms = cost_norms()
     with UseDatabase(config) as cursor:
         cursor.execute(
-            f"""SELECT DATE_FORMAT(o.date, '%Y-%m') AS month,
-                       COUNT(DISTINCT o.id) AS orders,
-                       COALESCE(SUM(d.count), 0) AS bottles,
-                       COALESCE(SUM(d.price * d.count), 0) AS revenue,
-                       COALESCE(SUM(d.seed_cost), 0) AS seed_cost
-                FROM orders o JOIN order_details d ON d.order_id = o.id
+            f"""SELECT DATE_FORMAT(o.date, '%Y-%m') AS month, COUNT(DISTINCT o.id) AS orders
+                FROM orders o
                 WHERE o.date >= %s AND o.date <= %s AND {not_cancelled_sql}
-                GROUP BY DATE_FORMAT(o.date, '%Y-%m')
-                ORDER BY month""",
+                GROUP BY DATE_FORMAT(o.date, '%Y-%m')""",
             (start, today, *params),
         )
-        rows = {row['month']: row for row in _rows(cursor)}
+        orders_by_month = {row['month']: int(row['orders']) for row in _rows(cursor)}
+        cursor.execute(
+            f"""SELECT DATE_FORMAT(o.date, '%Y-%m') AS month, d.oil_name, d.volume, d.price,
+                       SUM(d.count) AS bottles
+                FROM orders o JOIN order_details d ON d.order_id = o.id
+                WHERE o.date >= %s AND o.date <= %s AND {not_cancelled_sql}
+                GROUP BY DATE_FORMAT(o.date, '%Y-%m'), d.oil_name, d.volume, d.price""",
+            (start, today, *params),
+        )
+        lines = _rows(cursor)
+        cursor.execute(
+            """SELECT DATE_FORMAT(expense_date, '%Y-%m') AS month,
+                      SUM(goods_total + delivery_cost + carsharing_cost) AS expenses
+               FROM expense_entries WHERE expense_date >= %s AND expense_date <= %s
+               GROUP BY DATE_FORMAT(expense_date, '%Y-%m')""",
+            (start, today),
+        )
+        expenses_by_month = {row['month']: float(row['expenses'] or 0) for row in _rows(cursor)}
+
+    totals: Dict[str, dict] = {}
+    for line in lines:
+        bucket = totals.setdefault(line['month'], {'bottles': 0, 'revenue': 0.0, 'cost': 0.0, 'covered': 0.0})
+        count = int(line['bottles'] or 0)
+        revenue = float(line['price'] or 0) * count
+        bucket['bottles'] += count
+        bucket['revenue'] += revenue
+        norm = norms.get(_norm_name(line['oil_name']))
+        if norm and norm['has_seed_price']:
+            bucket['cost'] += line_variable_cost(norm, float(line['volume']), count, float(line['price'] or 0),
+                                                 settings)['total']
+            bucket['covered'] += revenue
+
     result, cursor_month = [], start
     while cursor_month <= today:
         key = cursor_month.strftime('%Y-%m')
-        row = rows.get(key) or {'orders': 0, 'bottles': 0, 'revenue': 0.0, 'seed_cost': 0.0}
-        orders = int(row['orders'] or 0)
-        revenue = float(row['revenue'] or 0)
+        bucket = totals.get(key) or {'bottles': 0, 'revenue': 0.0, 'cost': 0.0, 'covered': 0.0}
+        orders = orders_by_month.get(key, 0)
+        revenue = bucket['revenue']
         result.append({
             'month': key,
             'orders': orders,
-            'bottles': int(row['bottles'] or 0),
+            'bottles': bucket['bottles'],
             'revenue': revenue,
-            'gross_profit': revenue - float(row['seed_cost'] or 0),
             'avg_check': revenue / orders if orders else 0.0,
+            # Маржа по нормам: только по маслам с нормой и ценой семян; доля — в norms_coverage.
+            'variable_cost': round(bucket['cost'], 2),
+            'margin': round(bucket['covered'] - bucket['cost'], 2),
+            'norms_coverage': round(bucket['covered'] / revenue * 100) if revenue else 0,
+            'expenses': expenses_by_month.get(key, 0.0),
         })
         cursor_month = (cursor_month + timedelta(days=32)).replace(day=1)
     return result
@@ -1452,6 +1601,11 @@ def api_update_settings(payload: dict = Body(...), admin: dict = Depends(require
 @router.get('/production-schedule')
 def api_production_schedule(days: int = Query(14, ge=1, le=60), user: dict = Depends(get_current_user)):
     return _http(production_schedule, days=days)
+
+
+@router.get('/economics')
+def api_economics(user: dict = Depends(get_current_user)):
+    return _http(unit_economics)
 
 
 @router.get('/revenue-by-month')

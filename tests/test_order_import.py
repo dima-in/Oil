@@ -99,3 +99,44 @@ def test_parse_workbook_rejects_wrong_file():
     book.save(buffer)
     with pytest.raises(order_import.OrderImportError, match='Заказы'):
         order_import.parse_workbook(buffer.getvalue())
+
+
+def economics_workbook():
+    book = openpyxl.Workbook()
+    price = book.active
+    price.title = 'Прайс'
+    price.append(['масло', '250 мл', '500 мл', 'доставка за 1 кг', 'бутылка', 'кг в закладке', 'цена за 1 кг',
+                  'получка за закладку', 'выход масла с закладки'])
+    price.append(['подсолнечное', '=ROUNDDOWN(((H2+G2*F2)/I2*225+D2*F2+E2)*1.06, -1)', None, 50, 23, 2, 149, 2300,
+                  1000])
+    price.append(['льняное', None, None, None, None, 1.8, 105, 2200, 750])
+    price.append(['кунжут черный'])  # без норм — пропускается
+    pnl = book.create_sheet('Прибыль и убыль')
+    pnl.append([None, 'дата', 'наименование', 'кг', 'цена за 1 кг', 'сумма заказа', 'доставка', 'каршеринг'])
+    pnl.append([None, datetime(2026, 3, 3), 'тмин', 25, 350, 8750])
+    pnl.append([None, None, 'кунжут', 25, 180, 4500, None, 1700])  # дата — как строкой выше
+    pnl.append([None, datetime(2026, 1, 26), 'Конопля 40 кг', None, None, 0])  # без суммы
+    pnl.append([None, None, None, None, None, 50000])  # итог без наименования
+    values_buffer = io.BytesIO()
+    book.save(values_buffer)
+    return values_buffer.getvalue()
+
+
+def test_read_economics_and_expenses():
+    content = economics_workbook()
+    values = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
+    formulas = openpyxl.load_workbook(io.BytesIO(content), data_only=False)
+
+    economics = order_import.read_economics(values, formulas)
+    assert economics['settings'] == {'seed_delivery_per_kg': 50.0, 'bottle_cost': 23.0, 'tax_percent': 6.0}
+    sunflower, flax = economics['oils']
+    assert sunflower == {'oil_name': 'подсолнечное', 'kg_per_batch': 2.0, 'yield_ml': 1000.0, 'yield_percent': 50.0,
+                         'seed_price_per_kg': 149.0, 'labor_per_batch': 2300.0}
+    assert flax['yield_percent'] == round(750 / 18, 4)
+
+    expenses, warnings = order_import.read_expenses(values)
+    assert [(e['expense_date'], e['item_name'], e['goods_total'], e['carsharing_cost']) for e in expenses] == [
+        (date(2026, 3, 3), 'тмин', 8750.0, 0.0),
+        (date(2026, 3, 3), 'кунжут', 4500.0, 1700.0),
+    ]
+    assert any('Конопля 40 кг' in warning for warning in warnings)

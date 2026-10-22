@@ -1101,12 +1101,18 @@ async def api_upsert_production_profile(
     if not oil_name:
         raise HTTPException(status_code=400, detail='oil_name is required')
 
+    def optional_float(key):
+        value = profile_data.get(key)
+        return None if value in (None, '') else float(value)
+
     upsert_production_profile(
         oil_name,
         float(profile_data.get('batch_seed_weight_kg', 0) or 0),
         float(profile_data.get('yield_percent', 0) or 0),
         int(profile_data.get('daily_batch_limit', 3) or 3),
         profile_data.get('note'),
+        optional_float('seed_price_per_kg'),
+        optional_float('labor_per_batch'),
     )
     return {'success': True}
 

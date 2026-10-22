@@ -65,3 +65,50 @@ def test_production_jobs_use_stock_on_hand(monkeypatch):
     needs = [{'oil_name': 'льняное', 'profile_ready': True, 'on_hand_ml': 5000, 'shortage_ml': 0}]
     profiles = {'льняное': {'batch_seed_weight_kg': 10, 'yield_percent': 30}}
     assert crm._production_jobs(needs, profiles, date(2026, 11, 5)) == []
+
+
+def test_line_variable_cost_spreads_delivery_per_ml():
+    import crm as crm_module
+    norm = {'seeds_per_ml': 2 * 149 / 1000, 'delivery_per_ml': 50 * 2 / 1000}
+    settings = {'bottle_cost': 23, 'tax_percent': 6}
+    cost = crm_module.line_variable_cost(norm, 250, 2, 750, settings)
+    assert round(cost['seeds'], 2) == 149.0       # 2 × 250 мл × 0,298 ₽/мл
+    assert round(cost['delivery'], 2) == 50.0     # доставка на мл, а не на каждую бутылку целиком
+    assert cost['bottle'] == 46
+    assert round(cost['tax'], 2) == 90.0          # 6% от 1500
+    assert round(cost['total'], 2) == 335.0
+
+
+def test_unit_economics_hides_margin_without_seed_price(monkeypatch):
+    class FakeCursor:
+        def execute(self, *args):
+            pass
+
+        def fetchall(self):
+            return [('кедровое', 100, 820), ('льняное', 500, 870)]
+
+    class FakeDatabase:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return FakeCursor()
+
+        def __exit__(self, *args):
+            return False
+
+    profiles = [
+        {'oil_name': 'кедровое', 'batch_seed_weight_kg': 5, 'yield_percent': 25, 'seed_price_per_kg': 1300,
+         'labor_per_batch': None},
+        {'oil_name': 'льняное', 'batch_seed_weight_kg': 10, 'yield_percent': 30, 'seed_price_per_kg': None,
+         'labor_per_batch': None},
+    ]
+    monkeypatch.setattr(crm, 'UseDatabase', FakeDatabase)
+    monkeypatch.setattr(crm, 'list_production_profiles', lambda: profiles)
+    monkeypatch.setattr(crm, 'get_settings', lambda: {'bottle_cost': 23, 'seed_delivery_per_kg': 50, 'tax_percent': 6})
+
+    data = crm.unit_economics()
+    cedar, flax = data['items']
+    assert cedar['seeds'] == 520.0 and cedar['low']   # 0,4 кг × 1300 ₽ съедают бóльшую часть цены
+    assert flax['margin'] is None and flax['margin_percent'] is None and not flax['low']
+    assert any('Не указана цена семян для: льняное' in warning for warning in data['warnings'])

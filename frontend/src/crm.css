@@ -1545,6 +1545,13 @@ textarea.ios-input {
   border-color: transparent;
 }
 
+.table-input {
+  width: 96px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  text-align: right;
+}
+
 /* ═══ revenue by month (column chart) ═══ */
 
 .revenue-chart {

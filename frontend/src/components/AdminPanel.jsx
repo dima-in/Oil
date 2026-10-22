@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import AdminAnalytics from './AdminAnalytics'
+import EconomicsPanel from './EconomicsPanel'
 import ImportOrdersPanel from './ImportOrdersPanel'
 import PageHeader from './PageHeader'
 import PricelistManager from './PricelistManager'
@@ -9,6 +10,7 @@ import UsersPanel from './UsersPanel'
 
 const tabs = [
   { id: 'analytics', label: 'Аналитика, партии и расходы' },
+  { id: 'economics', label: 'Экономика' },
   { id: 'pricelist', label: 'Прайс-лист' },
   { id: 'upload', label: 'Загрузка прайса' },
   { id: 'import', label: 'Импорт заказов' },
@@ -43,6 +45,7 @@ export default function AdminPanel({ user }) {
       <section className="section-card">
         {activeTab === 'pricelist' ? <PricelistManager /> : null}
         {activeTab === 'analytics' ? <AdminAnalytics /> : null}
+        {activeTab === 'economics' ? <EconomicsPanel isAdmin={user?.role === 'admin' && !user?.is_demo} /> : null}
         {activeTab === 'upload' ? <UploadPricelist /> : null}
         {activeTab === 'import' ? <ImportOrdersPanel isAdmin={user?.role === 'admin' && !user?.is_demo} /> : null}
         {activeTab === 'settings' ? <SettingsPanel isAdmin={user?.role === 'admin'} /> : null}

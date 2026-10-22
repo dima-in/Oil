@@ -402,6 +402,20 @@ def tool_production_schedule(args: dict) -> dict:
     }
 
 
+def tool_unit_economics(args: dict) -> dict:
+    data = crm.unit_economics()
+    oil = (args.get('oil_name') or '').strip().lower()
+    items = [item for item in data['items'] if not oil or oil in item['oil_name'].lower()]
+    return {
+        'settings': data['settings'],
+        'items': [{key: item[key] for key in ('oil_name', 'volume', 'price', 'seeds', 'delivery', 'bottle', 'tax',
+                                              'margin', 'margin_percent', 'planned_pay')} for item in items],
+        'warnings': data['warnings'],
+        'note': 'margin = цена − семена − доставка семян − бутылка − налог; без аренды, каршеринга и комиссий; '
+                'margin = null — не указана цена семян, маржу не называй',
+    }
+
+
 def tool_tasks(args: dict) -> dict:
     status = args.get('status') if args.get('status') in ('open', 'done', 'all') else 'open'
     tasks = crm.list_tasks(status=status, limit=50)
@@ -704,6 +718,10 @@ TOOLS: Dict[str, ToolSpec] = {
                             'help': 'раскладка закладок по прессам и дням под открытые заказы: загрузка, '
                                     'свободные дни, что не успеваем, сколько семян купить. Для вопросов '
                                     '«когда успеем», «что отжимать завтра», «возьмём ли ещё заказ»'},
+    'unit_economics': {'kind': 'read', 'title': 'Экономика бутылки', 'run': tool_unit_economics,
+                       'params': '{"oil_name": "необязательно — одно масло"}',
+                       'help': 'себестоимость и маржа каждой бутылки прайса (семена, доставка, бутылка, налог); '
+                               'для вопросов «что выгоднее», «где низкая маржа», «какую цену поставить»'},
     'tasks': {'kind': 'read', 'title': 'Задачи', 'run': tool_tasks, 'params': '{"status": "open|done|all"}',
               'help': 'список задач'},
     'expenses': {'kind': 'read', 'title': 'Расходы', 'run': tool_expenses,
@@ -802,6 +820,7 @@ TOOL_SCHEMAS = {
     'production_needs': _obj(days=_i('горизонт в днях, по умолчанию 14')),
     'production_plan': _obj(['oil_name', 'volume'], oil_name=_s('масло'), volume=_s('объём: «5 л», «750 мл»')),
     'production_schedule': _obj(days=_i('горизонт в днях, по умолчанию 14')),
+    'unit_economics': _obj(oil_name=_s('масло; пусто — все')),
     'tasks': _obj(status={'type': 'string', 'enum': ['open', 'done', 'all']}),
     'expenses': _obj(date_from=_s(DATE), date_to=_s(DATE)),
     'create_order': _obj(

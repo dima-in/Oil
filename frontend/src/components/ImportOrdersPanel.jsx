@@ -20,7 +20,11 @@ export default function ImportOrdersPanel({ isAdmin }) {
       const result = await api.importOrders(file, commit)
       setReport(result)
       if (commit) {
-        setImported(result.imported)
+        setImported({
+          orders: result.imported,
+          expenses: result.imported_expenses || 0,
+          norms: result.applied_norms || 0,
+        })
         notifyDataChanged()
       }
     } catch (err) {
@@ -65,7 +69,8 @@ export default function ImportOrdersPanel({ isAdmin }) {
       {error ? <div className="notice notice--error">{error}</div> : null}
       {imported !== null ? (
         <div className="notice notice--success">
-          Загружено заказов: {imported}. Они уже в «Заказах», в карточках клиентов и в выручке по месяцам.
+          Загружено: заказов {imported.orders}, закупок в «Расходы» {imported.expenses}, норм себестоимости{' '}
+          {imported.norms}. Заказы — в «Заказах» и выручке по месяцам, маржа — во вкладке «Экономика».
         </div>
       ) : null}
 
@@ -118,6 +123,84 @@ export default function ImportOrdersPanel({ isAdmin }) {
             note="Оценка по прайсу из файла: в строках старой таблицы цены не записаны, а прайс со временем менялся. Допы (урбеч, жмых, мука) в сумму не входят."
           />
 
+          {report.economics?.oils?.length ? (
+            <details className="chat-details" open>
+              <summary>
+                Нормы себестоимости с листа «Прайс»: {report.economics.oils.length} масел
+                {report.economics.oils.some((oil) => oil.changed)
+                  ? ` (изменятся: ${report.economics.oils.filter((oil) => oil.changed).length})`
+                  : ' (совпадают с CRM)'}
+              </summary>
+              <p className="page-hint">
+                Бутылка {report.economics.settings.bottle_cost ?? '—'} ₽, доставка семян{' '}
+                {report.economics.settings.seed_delivery_per_kg ?? '—'} ₽/кг, налог {report.economics.settings.tax_percent ?? '—'}%.
+                Из этого CRM считает маржу каждой бутылки («Управление → Экономика»).
+              </p>
+              <div className="table-wrap">
+                <table className="price-table price-table--compact crm-table">
+                  <thead>
+                    <tr>
+                      <th>Масло</th>
+                      <th className="num">Кг в закладке</th>
+                      <th className="num">Выход, мл</th>
+                      <th className="num">Семена, ₽/кг</th>
+                      <th className="num">Получка за закладку</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.economics.oils.map((oil) => (
+                      <tr key={oil.oil_name}>
+                        <td>{oil.oil_name}</td>
+                        <td className="num">{oil.kg_per_batch}</td>
+                        <td className="num">{oil.yield_ml}</td>
+                        <td className="num">{oil.seed_price_per_kg ?? '—'}</td>
+                        <td className="num">{oil.labor_per_batch ? money(oil.labor_per_batch) : '—'}</td>
+                        <td>{oil.changed ? <span className="tag tag--source">новое</span> : null}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          ) : null}
+
+          {report.expenses?.in_file ? (
+            <details className="chat-details" open>
+              <summary>
+                Закупки с листа «Прибыль и убыль»: {report.expenses.in_file}, новых {report.expenses.new} на{' '}
+                {money(report.expenses.total_new)}
+                {report.expenses.duplicates ? `, уже в «Расходах»: ${report.expenses.duplicates}` : ''}
+              </summary>
+              <div className="table-wrap">
+                <table className="price-table price-table--compact crm-table">
+                  <thead>
+                    <tr>
+                      <th>Дата</th>
+                      <th>Что</th>
+                      <th className="num">Кг</th>
+                      <th className="num">Сумма</th>
+                      <th className="num">Доставка + каршеринг</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.expenses.rows.map((row) => (
+                      <tr key={row.row}>
+                        <td className="nowrap">{dateRu(row.expense_date)}</td>
+                        <td>{row.item_name}</td>
+                        <td className="num">{row.weight_kg || '—'}</td>
+                        <td className="num">{money(row.goods_total)}</td>
+                        <td className="num">{money(row.delivery_cost + row.carsharing_cost)}</td>
+                        <td>{row.duplicate ? <span className="tag">уже в CRM</span> : null}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          ) : null}
+
           {report.warnings.length ? (
             <details className="chat-details" open>
               <summary>На что обратить внимание ({report.warnings.length})</summary>
@@ -167,10 +250,12 @@ export default function ImportOrdersPanel({ isAdmin }) {
               <button
                 type="button"
                 className="ios-button primary"
-                disabled={busy || !report.to_import || !isAdmin}
+                disabled={busy || !isAdmin || !(report.to_import || report.expenses?.new || report.economics?.oils?.length)}
                 onClick={() => send(true)}
               >
-                {busy ? 'Загружаю…' : `Загрузить ${report.to_import} заказ(ов) в CRM`}
+                {busy
+                  ? 'Загружаю…'
+                  : `Загрузить: заказов ${report.to_import}, закупок ${report.expenses?.new || 0}, норм ${report.economics?.oils?.length || 0}`}
               </button>
             </div>
           ) : null}

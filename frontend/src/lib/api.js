@@ -128,6 +128,8 @@ export const api = {
     deleteReview: (id) => request(`/crm/reviews/${id}`, { method: 'DELETE' }),
     syncReviews: () => request('/crm/reviews/sync', { method: 'POST' }),
     importReviews: (reviews) => request('/crm/reviews/import', { method: 'POST', json: { reviews } }),
+    shopProducts: () => request('/crm/shop-products'),
+    updateShopProduct: (slug, payload) => request(`/crm/shop-products/${slug}`, { method: 'PUT', json: payload }),
   },
 
   assistant: {

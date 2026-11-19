@@ -17,6 +17,26 @@ export function Stars({ value, size = 16 }) {
   )
 }
 
+export function RatingBadge({ info, compact = false }) {
+  const rating = info?.avito_rating
+  if (!rating) return null
+  const count = info?.avito_reviews_count
+  const content = (
+    <>
+      <Stars value={rating} size={compact ? 15 : 18} />
+      <span>
+        <strong>{ratingLabel(rating)}</strong>
+        {count ? ` · ${count.toLocaleString('ru-RU')} ${reviewsWord(count)} на Авито` : ' на Авито'}
+      </span>
+    </>
+  )
+  return info?.avito_profile_url ? (
+    <a className="rating-badge" href={info.avito_profile_url} target="_blank" rel="noopener noreferrer">{content}</a>
+  ) : (
+    <span className="rating-badge">{content}</span>
+  )
+}
+
 function ReviewCard({ review }) {
   const [open, setOpen] = useState(false)
   const long = review.text.length > 320
@@ -39,7 +59,7 @@ function ReviewCard({ review }) {
       {review.item_title ? <div className="review__item">{review.item_title}</div> : null}
       {review.reply ? (
         <div className="review__reply">
-          <span>Ответ продавца</span>
+          <span>Ответ мастерской</span>
           {review.reply}
         </div>
       ) : null}
@@ -47,54 +67,59 @@ function ReviewCard({ review }) {
   )
 }
 
-export default function Reviews({ reviews, info }) {
-  const [shown, setShown] = useState(PAGE)
-  const rating = info?.avito_rating
-  const count = info?.avito_reviews_count
-  const profile = info?.avito_profile_url
+export function ReviewList({ reviews, page = PAGE }) {
+  const [shown, setShown] = useState(page)
+  return (
+    <>
+      <div className="reviews">
+        {reviews.slice(0, shown).map((review) => <ReviewCard key={review.id} review={review} />)}
+      </div>
+      {shown < reviews.length ? (
+        <div className="section__actions">
+          <button type="button" className="btn btn--chalk" onClick={() => setShown((value) => value + page)}>
+            Показать ещё отзывы
+          </button>
+        </div>
+      ) : null}
+    </>
+  )
+}
 
+export default function Reviews({ reviews, info }) {
+  const rating = info?.avito_rating
   if (!reviews.length && !rating) return null
 
   return (
     <section className="section" id="reviews" aria-labelledby="reviews-title">
       <div className="section__head section__head--split">
         <div>
-          <p className="eyebrow">Отзывы</p>
+          <p className="eyebrow">отзывы</p>
           <h2 id="reviews-title" className="section__title">Что говорят покупатели</h2>
         </div>
         {rating ? (
           <div className="rating-summary">
             <div className="rating-summary__value">{ratingLabel(rating)}</div>
             <div>
-              <Stars value={rating} size={18} />
+              <Stars value={rating} size={20} />
               <div className="rating-summary__text">
-                {count ? `${count.toLocaleString('ru-RU')} ${reviewsWord(count)} на Авито` : 'рейтинг на Авито'}
+                {info?.avito_reviews_count
+                  ? `${info.avito_reviews_count.toLocaleString('ru-RU')} ${reviewsWord(info.avito_reviews_count)} на Авито`
+                  : 'рейтинг на Авито'}
               </div>
             </div>
           </div>
         ) : null}
       </div>
 
-      {reviews.length ? (
-        <div className="reviews">
-          {reviews.slice(0, shown).map((review) => (
-            <ReviewCard key={review.id} review={review} />
-          ))}
-        </div>
-      ) : null}
+      {reviews.length ? <ReviewList reviews={reviews} /> : null}
 
-      <div className="section__actions">
-        {shown < reviews.length ? (
-          <button type="button" className="btn btn--ghost" onClick={() => setShown((value) => value + PAGE)}>
-            Показать ещё
-          </button>
-        ) : null}
-        {profile ? (
-          <a className="btn btn--ghost" href={profile} target="_blank" rel="noopener noreferrer">
+      {info?.avito_profile_url ? (
+        <div className="section__actions">
+          <a className="btn btn--chalk" href={info.avito_profile_url} target="_blank" rel="noopener noreferrer">
             Все отзывы на Авито ↗
           </a>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </section>
   )
 }

@@ -47,16 +47,20 @@ DEFAULT_SETTINGS = {
     'bottle_cost': 23,
     'seed_delivery_per_kg': 50,
     'tax_percent': 6,
-    # Витрина магазина (/shop): контакты и профиль на Авито. Рейтинг и число отзывов
-    # обновляет синхронизация с Авито (reviews.py); без неё их можно вписать вручную.
+    # Витрина магазина (/shop): название, контакты и профиль на Авито. Рейтинг и число отзывов
+    # обновляет синхронизация с Авито (reviews.py); без неё их можно вписать вручную. Пустые
+    # «о мастерской» и адрес самовывоза берутся из data/shop_content.json.
+    'shop_name': 'Выжимальня',
+    'shop_about': '',
     'shop_phone': '',
     'shop_pickup_address': '',
     'avito_profile_url': '',
     'avito_rating': 0,
     'avito_reviews_count': 0,
+    'avito_sales_count': 0,
 }
 INT_SETTINGS = {'presses_count': (1, 20), 'press_batches_per_day': (1, 24), 'settle_days': (0, 14),
-                'avito_reviews_count': (0, 1000000)}
+                'avito_reviews_count': (0, 1000000), 'avito_sales_count': (0, 1000000)}
 FLOAT_SETTINGS = {'bottle_cost': (0, 100000), 'seed_delivery_per_kg': (0, 100000), 'tax_percent': (0, 50),
                   'avito_rating': (0, 5)}
 # Ссылка на профиль показывается покупателям на сайте — только настоящий адрес Авито.
@@ -176,6 +180,15 @@ def parse_date(value, field='дата') -> Optional[date]:
         return datetime.strptime(str(value).strip()[:10], '%Y-%m-%d').date()
     except ValueError:
         raise CrmError(f'{field}: ожидается дата в формате ГГГГ-ММ-ДД, получено «{value}»')
+
+
+_ASTRAL_RE = re.compile('[\U00010000-\U0010FFFF]')
+
+
+def strip_astral(text) -> str:
+    """Убрать эмодзи и прочие 4-байтные символы: соединение с базой объявлено как utf8 (3 байта),
+    и такой символ в тексте с сайта или с Авито ронял бы запись целиком."""
+    return re.sub(r'[ \t]{2,}', ' ', _ASTRAL_RE.sub('', str(text or '')))
 
 
 def _clean(value, limit=None) -> Optional[str]:

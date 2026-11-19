@@ -1,4 +1,5 @@
 """Витрина магазина: заказ с сайта, отзывы, страница. Без базы — данные CRM подменяются."""
+import re
 from datetime import date
 
 import pytest
@@ -121,9 +122,9 @@ def test_shipping_date_waits_for_pressing_when_not_in_stock(fake_crm):
 def test_shop_page_is_served_on_shop_path_and_shop_host(monkeypatch):
     # Шаблон подменяем: сигнатура TemplateResponse зависит от версии Starlette, а проверяем маршруты.
     monkeypatch.setattr(main.templates, 'TemplateResponse',
-                        lambda name, context, **kwargs: HTMLResponse(f'{name} {context.get("company_name")}'))
-    monkeypatch.setattr(crm, 'get_settings', lambda: dict(SETTINGS, company_name='Маслобойня'))
-    assert client.get('/shop').text == 'shop.html Маслобойня'
+                        lambda name, context, **kwargs: HTMLResponse(f'{name} {context.get("shop_name")}'))
+    monkeypatch.setattr(crm, 'get_settings', lambda: dict(SETTINGS))
+    assert client.get('/shop').text == 'shop.html Выжимальня'
     assert client.get('/shop/anything').text.startswith('shop.html')
     assert client.get('/').text.startswith('index.html')
     monkeypatch.setenv('OIL_SHOP_HOST', 'maslo.example, www.maslo.example')
@@ -138,9 +139,87 @@ def test_info_exposes_only_public_settings(monkeypatch):
         SETTINGS, shop_phone='+7 900 000-00-00', avito_profile_url='https://www.avito.ru/brands/x',
         avito_rating=5.0, avito_reviews_count=278))
     body = client.get('/api/shop/info').json()
+    assert body['shop_name'] == 'Выжимальня'
     assert body['avito_rating'] == 5.0 and body['avito_reviews_count'] == 278
     assert 'business_profile' not in body and 'tax_percent' not in body
     assert [method['id'] for method in body['delivery_methods']] == ['pickup', 'courier', 'cdek', 'post']
+    # Пустые настройки — текст «о мастерской» и адрес самовывоза из data/shop_content.json.
+    assert 'бочонке' in body['about'] and 'Сходненская' in body['pickup_address']
+
+
+# ── карточки масел ───────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize('name, slug, title', [
+    ('льняное', 'lnyanoe', 'Льняное масло'),
+    ('тыквы штирийской', 'tykvy-shtiriyskoy', 'Масло тыквы штирийской'),
+    ('черного тмина', 'chernogo-tmina', 'Масло черного тмина'),
+    ('кунжут черный', 'kunzhut-chernyy', 'Масло чёрного кунжута'),
+])
+def test_slug_and_default_title(name, slug, title):
+    assert shop.slugify(name) == slug
+    assert shop.default_title(name) == title
+
+
+def test_product_image_prefers_styled_picture(tmp_path, monkeypatch):
+    (tmp_path / 'products').mkdir()
+    (tmp_path / 'льняное.jpg').write_bytes(b'x')
+    (tmp_path / 'конопляное.jpg').write_bytes(b'x')
+    (tmp_path / 'products' / 'konoplyanoe.webp').write_bytes(b'x')
+    monkeypatch.setattr(shop, 'IMAGE_DIR', tmp_path)
+    assert shop.product_image('льняное') == '/static/images/льняное.jpg'
+    assert shop.product_image('конопляное') == '/static/images/products/konoplyanoe.webp'
+    assert shop.product_image('кокосовое') is None
+
+
+def test_text_from_outside_loses_emoji_only():
+    assert crm.strip_astral('Спасибо 🙏 всё супер 👍') == 'Спасибо всё супер '
+    assert crm.strip_astral('Строка\n\nвторая') == 'Строка\n\nвторая'
+    assert reviews._clean('  Огонь 🔥 ') == 'Огонь'
+
+
+def test_seed_cards_cover_price_list_and_avoid_medical_claims():
+    seeds = shop._seed_products()
+    assert len(seeds) == 16
+    assert len({shop.slugify(seed['name']) for seed in seeds}) == 16
+    for seed in seeds:
+        assert not seed.get('avito_url') or crm.AVITO_URL_RE.match(seed['avito_url'])
+        text = f'{seed.get("short_text") or ""} {seed.get("description") or ""}'.lower()
+        # Пищевому продукту нельзя приписывать лечение болезней (закон «О рекламе»).
+        assert not any(word in text for word in ('рак', 'цирроз', 'гепатит', 'простат', 'диабет', 'паразит',
+                                                 'лечени', 'лечит'))
+        # Латинские буквы-двойники из объявлений Авито (Сыродaвленноe) вычищены.
+        assert not any(re.search(r'[а-яё][a-z]|[a-z][а-яё]', word) for word in text.split())
+
+
+def test_reviews_about_product_match_by_name(monkeypatch):
+    monkeypatch.setattr(reviews, 'public_reviews', lambda limit=30: [
+        {'id': 1, 'item_title': 'Масло штирийской тыквы сыродавленное от 250 мл', 'text': 'Отличное'},
+        {'id': 2, 'item_title': 'Сыродавленное масло', 'text': 'Тыквенное масло очень хорошее!'},
+        {'id': 3, 'item_title': 'Масло черного кунжута сыродавленное', 'text': 'Нежное'},
+        {'id': 4, 'item_title': 'Масло черного тмина 100 мл', 'text': 'Потрясающее'},
+    ])
+    assert [row['id'] for row in shop.reviews_about('тыквы штирийской')] == [1, 2]
+    # «черного» не в счёт: тмин и кунжут — разные масла.
+    assert [row['id'] for row in shop.reviews_about('черного тмина')] == [4]
+    assert [row['id'] for row in shop.reviews_about('кунжут черный')] == [3]
+
+
+def test_product_page_and_unknown_slug(monkeypatch):
+    monkeypatch.setattr(shop, 'catalog', lambda: [{'name': 'льняное', 'slug': 'lnyanoe', 'title': 'Льняное масло',
+                                                    'variants': []}])
+    monkeypatch.setattr(shop, 'product_cards', lambda: {'льняное': {'description': 'Из семян льна.'}})
+    monkeypatch.setattr(shop, 'reviews_about', lambda name, limit=12: [{'id': 9}])
+    body = client.get('/api/shop/products/lnyanoe').json()
+    assert body['description'] == 'Из семян льна.' and body['reviews'] == [{'id': 9}]
+    assert client.get('/api/shop/products/nope').status_code == 404
+
+
+def test_product_card_avito_link_must_be_avito(monkeypatch):
+    monkeypatch.setattr(shop, 'list_product_cards', lambda: [{'name': 'льняное', 'slug': 'lnyanoe'}])
+    with pytest.raises(crm.CrmError, match='avito.ru'):
+        shop.update_product_card('lnyanoe', {'avito_url': 'https://evil.example/'})
+    with pytest.raises(crm.NotFound):
+        shop.update_product_card('nope', {})
 
 
 def test_avito_profile_url_must_be_avito():

@@ -9,6 +9,7 @@
 - данные уже известного клиента не меняются и обратно не отдаются;
 - с одного адреса — не больше нескольких заказов за полчаса, ботов ловит скрытое поле.
 """
+import json
 import logging
 import re
 import time
@@ -17,15 +18,20 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import mysql.connector
-from fastapi import APIRouter, Body, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
 import crm
 import reviews
-from auth import _client_key
-from crm import CrmError, _clean, _norm_name, _rows
-from UseDatabase import UseDatabase, config
+from auth import _client_key, get_current_user, require_admin
+from crm import CrmError, _norm_name, _rows
+from UseDatabase import UseDatabase, active_database, config
 
 log = logging.getLogger('oilpress.shop')
+
+
+def _clean(value, limit=None):
+    """crm._clean без эмодзи: текст пишет посторонний человек или Авито (см. crm.strip_astral)."""
+    return crm._clean(None if value is None else crm.strip_astral(value), limit)
 
 DELIVERY_METHODS = {
     'pickup': {'label': 'Самовывоз', 'needs_address': False},
@@ -39,17 +45,27 @@ MAX_LINES = 30
 MAX_COUNT = 50
 CATALOG_CACHE_SECONDS = 60
 IMAGE_DIR = Path(__file__).resolve().parent / 'static' / 'images'
+SEED_FILE = Path(__file__).resolve().parent / 'data' / 'shop_products.json'
+CONTENT_FILE = Path(__file__).resolve().parent / 'data' / 'shop_content.json'
 # Фото лежат под старыми именами файлов.
 IMAGE_ALIASES = {'кунжут нешлифованный': 'кунжут не шлифованый'}
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+# Не ищем отзывы по цвету: «черного тмина» и «кунжут черный» — разные масла.
+COMMON_STEMS = ('черн', 'черё', 'бел', 'масл', 'сыро')
 
 _catalog_cache: Dict[str, tuple] = {}
 _order_attempts: Dict[str, List[float]] = {}
+_schema_ready: set = set()
 
 
 # ── каталог ──────────────────────────────────────────────────────────────────
 
 def product_image(oil_name) -> Optional[str]:
+    """Оформленная картинка static/images/products/<slug>.webp|jpg, если есть, иначе фото бутылки."""
+    slug = slugify(oil_name)
+    for extension in ('webp', 'jpg', 'jpeg', 'png'):
+        if (IMAGE_DIR / 'products' / f'{slug}.{extension}').is_file():
+            return f'/static/images/products/{slug}.{extension}'
     name = _norm_name(oil_name)
     for candidate in (name, IMAGE_ALIASES.get(name)):
         if candidate and (IMAGE_DIR / f'{candidate}.jpg').is_file():
@@ -67,21 +83,59 @@ def _free_stock() -> Dict[str, float]:
         return {}
 
 
+TRANSLIT = dict(zip('абвгдеёжзийклмнопрстуфхцчшщъыьэюя', [
+    'a', 'b', 'v', 'g', 'd', 'e', 'e', 'zh', 'z', 'i', 'y', 'k', 'l', 'm', 'n', 'o', 'p', 'r', 's', 't', 'u', 'f',
+    'h', 'ts', 'ch', 'sh', 'sch', '', 'y', '', 'e', 'yu', 'ya']))
+SPECIAL_TITLES = {
+    'кунжут черный': 'Масло чёрного кунжута',
+    'кунжут нешлифованный': 'Масло нешлифованного кунжута',
+}
+
+
+def slugify(name) -> str:
+    """«тыквы штирийской» → «tykvy-shtiriyskoy»: адрес страницы масла."""
+    text = ''.join(TRANSLIT.get(char, char) for char in _norm_name(name))
+    return re.sub(r'[^a-z0-9]+', '-', text).strip('-') or 'oil'
+
+
+def default_title(name) -> str:
+    """В прайсе коротко («льняное», «черного тмина») — покупателю пишем «масло»."""
+    clean = str(name or '').strip()
+    key = _norm_name(clean)
+    if key in SPECIAL_TITLES:
+        return SPECIAL_TITLES[key]
+    if key.startswith('масло'):
+        return clean[:1].upper() + clean[1:]
+    if ' ' not in key and key.endswith(('ое', 'ее')):
+        return f'{clean[:1].upper()}{clean[1:]} масло'
+    return f'Масло {clean}'
+
+
 def catalog() -> List[dict]:
+    """Масла из прайса с карточкой для сайта; скрытые в «Сайт и отзывы» не показываются."""
     cached = _catalog_cache.get('catalog')
     if cached and time.time() - cached[0] < CATALOG_CACHE_SECONDS:
         return cached[1]
-    crm.ensure_crm_schema()
+    ensure_products_schema()
     with UseDatabase(config) as cursor:
         cursor.execute("SELECT oil_name, volume, price FROM price_list WHERE price > 0 ORDER BY id")
         rows = _rows(cursor)
+    cards = product_cards()
     free = _free_stock()
     products: Dict[str, dict] = {}
     for row in rows:
         key = _norm_name(row['oil_name'])
+        card = cards.get(key, {})
+        if card.get('is_hidden'):
+            continue
         product = products.setdefault(key, {
             'name': row['oil_name'],
+            'slug': slugify(row['oil_name']),
+            'title': card.get('title') or default_title(row['oil_name']),
+            'short_text': card.get('short_text'),
+            'avito_url': card.get('avito_url'),
             'image': product_image(row['oil_name']),
+            'sort_order': int(card.get('sort_order') or 0),
             'variants': [],
         })
         volume = int(row['volume'])
@@ -93,22 +147,179 @@ def catalog() -> List[dict]:
             'price': float(row['price']),
             'in_stock': key in free and free[key] >= volume,
         })
-    result = sorted(products.values(), key=lambda product: _norm_name(product['name']))
+    result = sorted(products.values(), key=lambda product: (product['sort_order'], _norm_name(product['title'])))
     for product in result:
         product['variants'].sort(key=lambda variant: variant['volume'])
     _catalog_cache['catalog'] = (time.time(), result)
     return result
 
 
+# ── карточки масел: описание, ссылка на Авито ───────────────────────────────
+
+def ensure_products_schema():
+    database = active_database()
+    if database in _schema_ready:
+        return
+    crm.ensure_crm_schema()
+    with UseDatabase(config) as cursor:
+        cursor.execute("""CREATE TABLE IF NOT EXISTS shop_products (
+                            product_key VARCHAR(100) PRIMARY KEY,
+                            title VARCHAR(150) NULL,
+                            short_text VARCHAR(300) NULL,
+                            description TEXT NULL,
+                            avito_url VARCHAR(500) NULL,
+                            is_hidden TINYINT(1) NOT NULL DEFAULT 0,
+                            sort_order INT NOT NULL DEFAULT 0,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                            )""")
+        # Стартовые описания (перенесены с объявлений Авито). Только для масел, которых в таблице
+        # ещё нет: правки из CRM, даже пустые, повторный старт не затирает.
+        for seed in _seed_products():
+            cursor.execute(
+                """INSERT IGNORE INTO shop_products (product_key, title, short_text, description, avito_url, sort_order)
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                (
+                    _norm_name(seed.get('name'))[:100],
+                    _clean(seed.get('title'), 150),
+                    _clean(seed.get('short_text'), 300),
+                    _clean(seed.get('description')),
+                    _clean(seed.get('avito_url'), 500),
+                    int(seed.get('sort_order') or 0),
+                ),
+            )
+    _schema_ready.add(database)
+
+
+def _seed_products() -> List[dict]:
+    try:
+        rows = json.loads(SEED_FILE.read_text(encoding='utf-8'))
+    except (OSError, ValueError) as error:
+        log.warning('shop: seed products are unavailable: %s', error)
+        return []
+    return [row for row in rows if isinstance(row, dict) and _clean(row.get('name'))]
+
+
+def product_cards() -> Dict[str, dict]:
+    ensure_products_schema()
+    with UseDatabase(config) as cursor:
+        cursor.execute(
+            """SELECT product_key, title, short_text, description, avito_url, is_hidden, sort_order
+               FROM shop_products"""
+        )
+        return {row['product_key']: row for row in _rows(cursor)}
+
+
+def review_stems(name) -> tuple:
+    """Начала слов названия для поиска отзывов: «тыквы штирийской» → «тыкв», «штир»."""
+    return tuple(word[:4] for word in _norm_name(name).split()
+                 if len(word) >= 4 and word[:4] not in COMMON_STEMS)
+
+
+def reviews_about(name, limit=12) -> List[dict]:
+    """Опубликованные отзывы, где в названии объявления или в тексте упомянуто это масло."""
+    stems = review_stems(name)
+    if not stems:
+        return []
+    found = []
+    for review in reviews.public_reviews(limit=1000):
+        words = re.findall(r'\w+', _norm_name(f'{review.get("item_title") or ""} {review.get("text") or ""}'))
+        if any(word.startswith(stem) for word in words for stem in stems):
+            found.append(review)
+            if len(found) >= limit:
+                break
+    return found
+
+
+def product_page(slug) -> dict:
+    product = next((item for item in catalog() if item['slug'] == slug), None)
+    if product is None:
+        raise crm.NotFound('Такого масла нет в каталоге')
+    card = product_cards().get(_norm_name(product['name']), {})
+    return {**product, 'description': card.get('description'), 'reviews': reviews_about(product['name'])}
+
+
+def list_product_cards() -> List[dict]:
+    """Для CRM: все масла прайса с их карточками, включая скрытые."""
+    ensure_products_schema()
+    with UseDatabase(config) as cursor:
+        cursor.execute("SELECT DISTINCT oil_name FROM price_list WHERE price > 0")
+        names = {_norm_name(row[0]): row[0] for row in cursor.fetchall()}
+    cards = product_cards()
+    result = []
+    for key, name in names.items():
+        card = cards.get(key, {})
+        result.append({
+            'name': name,
+            'slug': slugify(name),
+            'default_title': default_title(name),
+            'title': card.get('title'),
+            'short_text': card.get('short_text'),
+            'description': card.get('description'),
+            'avito_url': card.get('avito_url'),
+            'is_hidden': bool(card.get('is_hidden')),
+            'sort_order': int(card.get('sort_order') or 0),
+            'image': product_image(name),
+        })
+    return sorted(result, key=lambda row: (row['sort_order'], _norm_name(row['title'] or row['default_title'])))
+
+
+def update_product_card(slug, data: dict) -> dict:
+    product = next((row for row in list_product_cards() if row['slug'] == slug), None)
+    if product is None:
+        raise crm.NotFound('Такого масла нет в прайсе')
+    avito_url = _clean(data.get('avito_url'), 500)
+    if avito_url and not crm.AVITO_URL_RE.match(avito_url):
+        raise CrmError('Ссылка на объявление должна начинаться с https://www.avito.ru/')
+    try:
+        sort_order = int(data.get('sort_order') or 0)
+    except (TypeError, ValueError):
+        raise CrmError('Порядок — целое число')
+    with UseDatabase(config) as cursor:
+        cursor.execute(
+            """INSERT INTO shop_products (product_key, title, short_text, description, avito_url, is_hidden, sort_order)
+               VALUES (%s, %s, %s, %s, %s, %s, %s)
+               ON DUPLICATE KEY UPDATE title = VALUES(title), short_text = VALUES(short_text),
+                   description = VALUES(description), avito_url = VALUES(avito_url),
+                   is_hidden = VALUES(is_hidden), sort_order = VALUES(sort_order)""",
+            (
+                _norm_name(product['name'])[:100],
+                _clean(data.get('title'), 150),
+                _clean(data.get('short_text'), 300),
+                _clean(data.get('description'), 20000),
+                avito_url,
+                1 if data.get('is_hidden') else 0,
+                sort_order,
+            ),
+        )
+    _catalog_cache.clear()
+    return next(row for row in list_product_cards() if row['slug'] == slug)
+
+
+def shop_content() -> dict:
+    try:
+        content = json.loads(CONTENT_FILE.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    return content if isinstance(content, dict) else {}
+
+
 def shop_info() -> dict:
     settings = crm.get_settings()
+    content = shop_content()
     return {
-        'company_name': settings['company_name'],
+        'shop_name': settings['shop_name'],
+        'about': settings['shop_about'] or content.get('about') or None,
         'phone': settings['shop_phone'] or None,
-        'pickup_address': settings['shop_pickup_address'] or None,
-        'avito_profile_url': settings['avito_profile_url'] or None,
-        'avito_rating': settings['avito_rating'] or None,
-        'avito_reviews_count': settings['avito_reviews_count'] or None,
+        'pickup_address': settings['shop_pickup_address'] or content.get('pickup_address') or None,
+        # Профиль на Авито — значки доверия на сайте. Что вписано в CRM, важнее стартовых данных.
+        'avito_profile_url': settings['avito_profile_url'] or content.get('avito_profile_url') or None,
+        'avito_rating': settings['avito_rating'] or content.get('avito_rating') or None,
+        'avito_reviews_count': settings['avito_reviews_count'] or content.get('avito_reviews_count') or None,
+        'avito_sales_count': settings['avito_sales_count'] or content.get('avito_sales_count') or None,
+        'avito_since': content.get('avito_since') or None,
+        'avito_trusted': bool(content.get('avito_trusted')),
+        'workshop_photos': [photo for photo in content.get('workshop_photos') or []
+                            if isinstance(photo, dict) and str(photo.get('src', '')).startswith('/static/')],
         'delivery_methods': [{'id': key, **value} for key, value in DELIVERY_METHODS.items()],
     }
 
@@ -267,6 +478,11 @@ def api_catalog():
     return _public(catalog)
 
 
+@router.get('/products/{slug}')
+def api_product(slug: str):
+    return _public(product_page, slug)
+
+
 @router.get('/reviews')
 def api_reviews(limit: int = Query(30, ge=1, le=100)):
     return _public(reviews.public_reviews, limit)
@@ -278,3 +494,17 @@ def api_place_order(request: Request, payload: dict = Body(...)):
     if _clean(payload.get('website')):
         return {'ok': True, 'order_id': None}
     return _public(place_order, payload, _client_key(request))
+
+
+# Карточки масел в CRM: «Управление → Сайт и отзывы».
+admin_router = APIRouter(prefix='/api/crm/shop-products')
+
+
+@admin_router.get('')
+def api_product_cards(user: dict = Depends(get_current_user)):
+    return _public(list_product_cards)
+
+
+@admin_router.put('/{slug}')
+def api_update_product_card(slug: str, payload: dict = Body(...), admin: dict = Depends(require_admin)):
+    return _public(update_product_card, slug, payload)

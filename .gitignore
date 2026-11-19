@@ -16,3 +16,5 @@ static/index.css
 static/shop.js
 static/shop.css
 static/*-*.js
+static/*.woff
+static/*.woff2

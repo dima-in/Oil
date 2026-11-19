@@ -4,7 +4,9 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/static/',
+  // Файлы сборки лежат в dist/static/ и отдаются сервером как /static/…: base «/» даёт ссылки
+  // /static/имя (при base '/static/' ссылки из CSS — шрифты — выходили /static/static/имя).
+  base: '/',
   build: {
     outDir: 'dist',
     assetsDir: 'static',

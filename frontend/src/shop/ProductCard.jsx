@@ -1,76 +1,97 @@
 import { useState } from 'react'
-import { money, productTitle, volumeLabel } from './format'
+import { Link } from 'react-router-dom'
+import { money, volumeLabel } from './format'
 
 export function DropIcon({ size = 20 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 2.7s-6 6.6-6 11.3a6 6 0 0 0 12 0c0-4.7-6-11.3-6-11.3z" />
     </svg>
   )
 }
 
+// Фото в бумажной рамке, как этикетка на полке мастерской.
+export function ProductPhoto({ product, large = false }) {
+  const [failed, setFailed] = useState(false)
+  return (
+    <div className={large ? 'photo photo--large' : 'photo'}>
+      {product.image && !failed ? (
+        <img src={product.image} alt={product.title} loading={large ? 'eager' : 'lazy'} onError={() => setFailed(true)} />
+      ) : (
+        <div className="photo__empty" aria-hidden="true">
+          <DropIcon size={44} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function VolumePicker({ product, value, onChange }) {
+  return (
+    <div className="volumes" role="radiogroup" aria-label={`Объём: ${product.title}`}>
+      {product.variants.map((item) => (
+        <button key={item.volume} type="button" role="radio" aria-checked={item.volume === value}
+          className={item.volume === value ? 'volume volume--active' : 'volume'} onClick={() => onChange(item.volume)}>
+          {volumeLabel(item.volume)}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function PriceTag({ price }) {
+  return <span className="price-tag">{money(price)}</span>
+}
+
+export function Stepper({ value, onChange, small = false }) {
+  return (
+    <div className={small ? 'stepper stepper--small' : 'stepper'} aria-label="Количество">
+      <button type="button" aria-label="Меньше" onClick={() => onChange(Math.max(1, value - 1))}>−</button>
+      <span aria-live="polite">{value}</span>
+      <button type="button" aria-label="Больше" onClick={() => onChange(Math.min(50, value + 1))}>+</button>
+    </div>
+  )
+}
+
 export default function ProductCard({ product, inCart, onAdd }) {
   const [selected, setSelected] = useState(product.variants[0]?.volume)
   const [count, setCount] = useState(1)
-  const [imageFailed, setImageFailed] = useState(false)
   const variant = product.variants.find((item) => item.volume === selected) || product.variants[0]
-  const title = productTitle(product.name)
-
-  const add = () => {
-    onAdd(product.name, variant.volume, count)
-    setCount(1)
-  }
+  const link = `/p/${product.slug}`
 
   return (
     <article className="product">
-      <div className="product__media">
-        {product.image && !imageFailed ? (
-          <img src={product.image} alt={title} loading="lazy" onError={() => setImageFailed(true)} />
-        ) : (
-          <div className="product__placeholder" aria-hidden="true">
-            <DropIcon size={40} />
-          </div>
-        )}
-        <span className={variant.in_stock ? 'badge badge--stock' : 'badge'}>
-          {variant.in_stock ? 'В наличии' : 'Отожмём под заказ'}
+      <Link to={link} className="product__photo-link" aria-label={product.title}>
+        <ProductPhoto product={product} />
+        <span className={variant.in_stock ? 'sticker sticker--stock' : 'sticker'}>
+          {variant.in_stock ? 'есть в наличии' : 'отожмём под заказ'}
         </span>
-      </div>
+      </Link>
 
       <div className="product__body">
-        <h3 className="product__title">{title}</h3>
+        <h3 className="product__title">
+          <Link to={link}>{product.title}</Link>
+        </h3>
+        {product.short_text ? <p className="product__lead">{product.short_text}</p> : null}
 
-        <div className="volumes" role="radiogroup" aria-label={`Объём: ${title}`}>
-          {product.variants.map((item) => (
-            <button
-              key={item.volume}
-              type="button"
-              role="radio"
-              aria-checked={item.volume === variant.volume}
-              className={item.volume === variant.volume ? 'volume volume--active' : 'volume'}
-              onClick={() => setSelected(item.volume)}
-            >
-              {volumeLabel(item.volume)}
-            </button>
-          ))}
-        </div>
+        <VolumePicker product={product} value={variant.volume} onChange={setSelected} />
 
         <div className="product__buy">
-          <div className="product__price">{money(variant.price)}</div>
-          <div className="stepper" aria-label="Количество">
-            <button type="button" aria-label="Меньше" onClick={() => setCount((value) => Math.max(1, value - 1))}>
-              −
-            </button>
-            <span aria-live="polite">{count}</span>
-            <button type="button" aria-label="Больше" onClick={() => setCount((value) => Math.min(50, value + 1))}>
-              +
-            </button>
-          </div>
+          <PriceTag price={variant.price} />
+          <Stepper value={count} onChange={setCount} />
         </div>
 
-        <button type="button" className="btn btn--primary btn--block" onClick={add}>
+        <button type="button" className="btn btn--primary btn--block"
+          onClick={() => { onAdd(product.name, variant.volume, count); setCount(1) }}>
           {inCart ? `В корзину · уже ${inCart}` : 'В корзину'}
         </button>
+        <div className="product__links">
+          <Link to={link}>Подробнее о масле</Link>
+          {product.avito_url ? (
+            <a href={product.avito_url} target="_blank" rel="noopener noreferrer">или на Авито ↗</a>
+          ) : null}
+        </div>
       </div>
     </article>
   )

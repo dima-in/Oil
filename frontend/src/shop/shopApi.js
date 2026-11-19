@@ -7,7 +7,9 @@ async function request(path, options = {}) {
   const payload = await response.json().catch(() => null)
   if (!response.ok) {
     const detail = payload?.detail
-    throw new Error(typeof detail === 'string' ? detail : 'Не получилось. Попробуйте ещё раз или позвоните нам.')
+    const error = new Error(typeof detail === 'string' ? detail : 'Не получилось. Попробуйте ещё раз или позвоните нам.')
+    error.status = response.status
+    throw error
   }
   return payload
 }
@@ -15,6 +17,7 @@ async function request(path, options = {}) {
 export const shopApi = {
   info: () => request('/info'),
   catalog: () => request('/catalog'),
+  product: (slug) => request(`/products/${encodeURIComponent(slug)}`),
   reviews: (limit = 60) => request(`/reviews?limit=${limit}`),
   placeOrder: (order) => request('/orders', { method: 'POST', body: JSON.stringify(order) }),
 }

@@ -23,10 +23,15 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 
 import crm
 from auth import get_current_user, require_admin
-from crm import CrmError, NotFound, _clean, _norm_name, _rows, parse_date
+from crm import CrmError, NotFound, _norm_name, _rows, parse_date
 from UseDatabase import UseDatabase, active_database, config
 
 log = logging.getLogger('oilpress.reviews')
+
+
+def _clean(value, limit=None):
+    """crm._clean без эмодзи: текст пишет посторонний человек или Авито (см. crm.strip_astral)."""
+    return crm._clean(None if value is None else crm.strip_astral(value), limit)
 
 AVITO_API = 'https://api.avito.ru'
 AVITO_PAGE_SIZE = 50
@@ -255,7 +260,7 @@ def parse_avito_review(raw: dict) -> Optional[dict]:
         'external_id': str(raw['id'])[:64],
         'author': _clean(sender.get('name'), 100) or 'Покупатель',
         'rating': rating,
-        'text': (raw.get('text') or '').strip()[:5000],
+        'text': crm.strip_astral(raw.get('text')).strip()[:5000],
         'item_title': _clean(item.get('title'), 255),
         'reply': _clean(answer.get('text'), 5000),
         'review_date': review_date,
@@ -360,7 +365,7 @@ def import_page_reviews(rows) -> dict:
     for raw in rows:
         if not isinstance(raw, dict):
             raise CrmError('Не понял формат файла: нужен список отзывов')
-        text = (raw.get('text') or '').strip()[:5000]
+        text = crm.strip_astral(raw.get('text')).strip()[:5000]
         author = _clean(raw.get('author'), 100) or 'Покупатель'
         try:
             rating = _rating(raw.get('rating'))

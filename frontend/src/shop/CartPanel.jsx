@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { shopApi } from './shopApi'
-import { money, phoneDigits, productTitle, shortDate, volumeLabel } from './format'
+import { money, phoneDigits, shortDate, volumeLabel } from './format'
 import { lineKey } from './useCart'
 
 const ADDRESS_HINTS = {
@@ -10,8 +10,8 @@ const ADDRESS_HINTS = {
 }
 
 const DELIVERY_NOTES = {
-  pickup: (info) => (info?.pickup_address ? info.pickup_address : 'Адрес и время скажем, когда подтвердим заказ'),
-  courier: () => 'По городу. Стоимость назовём при подтверждении',
+  pickup: (info) => (info?.pickup_address ? `${info.pickup_address}, бесплатно` : 'Адрес и время скажем, когда подтвердим заказ'),
+  courier: () => 'По Москве. Стоимость назовём при подтверждении',
   cdek: () => 'До пункта выдачи или курьером СДЭК',
   post: () => 'В любой город России',
 }
@@ -119,7 +119,7 @@ export default function CartPanel({ open, onClose, cart, priced, info }) {
               {priced.map((line) => (
                 <li key={lineKey(line)} className="cart-line">
                   <div className="cart-line__info">
-                    <div className="cart-line__title">{productTitle(line.oil_name)}</div>
+                    <div className="cart-line__title">{line.title}</div>
                     <div className="cart-line__meta">
                       {volumeLabel(line.volume)}
                       {line.price !== null ? ` · ${money(line.price)}` : ' · сейчас нет в продаже'}
@@ -168,6 +168,12 @@ export default function CartPanel({ open, onClose, cart, priced, info }) {
                   </label>
                 ))}
               </div>
+              {info?.avito_profile_url ? (
+                <p className="avito-note">
+                  Хотите Авито Доставку? Оформите заказ{' '}
+                  <a href={info.avito_profile_url} target="_blank" rel="noopener noreferrer">в нашем профиле на Авито ↗</a>
+                </p>
+              ) : null}
               {needsAddress ? (
                 <label className="field">
                   <span>Адрес</span>

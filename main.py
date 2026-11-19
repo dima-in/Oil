@@ -195,6 +195,7 @@ app.include_router(assistant.router)
 app.include_router(order_import.router)
 app.include_router(reviews.router)
 app.include_router(shop.router)
+app.include_router(shop.admin_router)
 
 
 @app.on_event('startup')
@@ -206,6 +207,7 @@ def prepare_database():
         crm.ensure_crm_schema()
         assistant.ensure_assistant_schema()
         reviews.ensure_reviews_schema()
+        shop.ensure_products_schema()
     except Exception as error:  # noqa: BLE001
         log.warning('database is not ready at startup: %s', error)
     reviews.start_background_sync()
@@ -1218,12 +1220,12 @@ def _is_shop_host(request: Request) -> bool:
 
 def _shop_page(request: Request):
     try:
-        company_name = crm.get_settings()['company_name']
+        shop_name = crm.get_settings()['shop_name']
     except Exception:  # noqa: BLE001 — страница должна открыться и без базы
-        company_name = crm.DEFAULT_SETTINGS['company_name']
+        shop_name = crm.DEFAULT_SETTINGS['shop_name']
     return templates.TemplateResponse(
         'shop.html',
-        {"request": request, "asset_version": _asset_version('shop'), "company_name": company_name},
+        {"request": request, "asset_version": _asset_version('shop'), "shop_name": shop_name},
         headers={'Cache-Control': 'no-cache'},
     )
 

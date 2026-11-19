@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 200 200" width="200" height="200">
+<defs>
+<filter id="c" filterUnits="userSpaceOnUse" x="-10" y="-10" width="220" height="220">
+<feTurbulence type="fractalNoise" baseFrequency="0.07" numOctaves="2" seed="18" result="w"/>
+<feDisplacementMap in="SourceGraphic" in2="w" scale="2.2" xChannelSelector="R" yChannelSelector="G" result="d"/>
+<feTurbulence type="fractalNoise" baseFrequency="1.25" numOctaves="2" seed="11" result="g"/>
+<feColorMatrix in="g" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 3.4 0 0 0 -0.75" result="m"/>
+<feComposite in="d" in2="m" operator="in"/>
+</filter>
+<g id="s"><circle cx="0" cy="0" r="4" stroke="#f0a04b" stroke-width="1.2" fill="#f0a04b" fill-opacity="0.5"/><circle cx="-1.3" cy="-1.4" r="0.9" stroke="#fde2b8" stroke-width="0.6" fill="#fde2b8" fill-opacity="1"/></g>
+</defs>
+<g filter="url(#c)" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.94">
+<path d="M200 12C184 44 170 92 162 158" stroke="#c9a274" stroke-width="2.2"/>
+<path d="M176 70C186 80 194 96 198 116" stroke="#c9a274" stroke-width="2.2"/>
+<path d="M166 116C152 104 140 100 128 100" stroke="#c9a274" stroke-width="2.2"/>
+<g transform="translate(196.2 19.99) rotate(-52.48)"><path d="M0 0 C2.8 -6.72 2.8 -18.81 0 -26.88 C-2.8 -18.81 -2.8 -6.72 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -22.85" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(196.2 19.99) rotate(48.02)"><path d="M0 0 C2.8 -5.84 2.8 -16.35 0 -23.36 C-2.8 -16.35 -2.8 -5.84 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -19.85" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(196.2 19.99) rotate(-5.2)"><path d="M0 0 C2.8 -6.69 2.8 -18.73 0 -26.75 C-2.8 -18.73 -2.8 -6.69 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -22.74" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(186.25 45.17) rotate(-53.45)"><path d="M0 0 C2.8 -5.84 2.8 -16.34 0 -23.35 C-2.8 -16.34 -2.8 -5.84 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -19.84" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(186.25 45.17) rotate(54.97)"><path d="M0 0 C2.8 -5.25 2.8 -14.7 0 -21 C-2.8 -14.7 -2.8 -5.25 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -17.85" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(186.25 45.17) rotate(10.94)"><path d="M0 0 C2.8 -5.85 2.8 -16.37 0 -23.39 C-2.8 -16.37 -2.8 -5.85 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -19.88" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(176.08 79.65) rotate(-63.75)"><path d="M0 0 C2.8 -6.21 2.8 -17.39 0 -24.85 C-2.8 -17.39 -2.8 -6.21 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -21.12" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(176.08 79.65) rotate(54.85)"><path d="M0 0 C2.8 -5.34 2.8 -14.94 0 -21.35 C-2.8 -14.94 -2.8 -5.34 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -18.14" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(176.08 79.65) rotate(5.75)"><path d="M0 0 C2.8 -5.39 2.8 -15.1 0 -21.57 C-2.8 -15.1 -2.8 -5.39 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -18.33" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(162.49 154.06) rotate(-53.9)"><path d="M0 0 C2.8 -5.23 2.8 -14.66 0 -20.94 C-2.8 -14.66 -2.8 -5.23 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -17.8" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(162.49 154.06) rotate(48.51)"><path d="M0 0 C2.8 -6.72 2.8 -18.82 0 -26.89 C-2.8 -18.82 -2.8 -6.72 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -22.85" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(162.49 154.06) rotate(190.31)"><path d="M0 0 C2.8 -5.33 2.8 -14.93 0 -21.33 C-2.8 -14.93 -2.8 -5.33 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -18.13" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(191.41 94.05) rotate(-56.11)"><path d="M0 0 C2.8 -5.84 2.8 -16.35 0 -23.36 C-2.8 -16.35 -2.8 -5.84 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -19.85" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(191.41 94.05) rotate(40.56)"><path d="M0 0 C2.8 -5.66 2.8 -15.86 0 -22.65 C-2.8 -15.86 -2.8 -5.66 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -19.26" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(191.41 94.05) rotate(9.89)"><path d="M0 0 C2.8 -5.07 2.8 -14.19 0 -20.27 C-2.8 -14.19 -2.8 -5.07 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -17.23" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(198 116) rotate(-69.21)"><path d="M0 0 C2.8 -6.41 2.8 -17.96 0 -25.65 C-2.8 -17.96 -2.8 -6.41 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -21.8" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(198 116) rotate(62.09)"><path d="M0 0 C2.8 -5.66 2.8 -15.85 0 -22.65 C-2.8 -15.85 -2.8 -5.66 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -19.25" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(198 116) rotate(165.64)"><path d="M0 0 C2.8 -6.33 2.8 -17.72 0 -25.32 C-2.8 -17.72 -2.8 -6.33 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -21.52" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(138.85 101.19) rotate(-48.02)"><path d="M0 0 C2.8 -5.72 2.8 -16.01 0 -22.87 C-2.8 -16.01 -2.8 -5.72 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -19.44" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(138.85 101.19) rotate(35.06)"><path d="M0 0 C2.8 -6.54 2.8 -18.33 0 -26.18 C-2.8 -18.33 -2.8 -6.54 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -22.25" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(138.85 101.19) rotate(3.03)"><path d="M0 0 C2.8 -5.29 2.8 -14.82 0 -21.16 C-2.8 -14.82 -2.8 -5.29 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -17.99" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(128 100) rotate(-61.3)"><path d="M0 0 C2.8 -6.41 2.8 -17.94 0 -25.63 C-2.8 -17.94 -2.8 -6.41 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -21.78" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(128 100) rotate(51.55)"><path d="M0 0 C2.8 -5.55 2.8 -15.54 0 -22.2 C-2.8 -15.54 -2.8 -5.55 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -18.87" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<g transform="translate(128 100) rotate(186.73)"><path d="M0 0 C2.8 -5.9 2.8 -16.53 0 -23.61 C-2.8 -16.53 -2.8 -5.9 0 0Z" stroke="#bcd3ae" stroke-width="1.6" fill="#bcd3ae" fill-opacity="0.18"/><path d="M0 0 L0 -20.07" stroke="#bcd3ae" stroke-width="1.1"/></g>
+<use xlink:href="#s" transform="translate(187.07 27) rotate(137.33) scale(0.88)"/>
+<use xlink:href="#s" transform="translate(190.93 32.91) rotate(45.97) scale(0.99)"/>
+<use xlink:href="#s" transform="translate(190.76 39.9) rotate(338.22) scale(0.86)"/>
+<use xlink:href="#s" transform="translate(183.34 43.02) rotate(45.27) scale(0.95)"/>
+<use xlink:href="#s" transform="translate(188.63 42.36) rotate(207.53) scale(1.09)"/>
+<use xlink:href="#s" transform="translate(183.03 45.27) rotate(325.01) scale(0.99)"/>
+<use xlink:href="#s" transform="translate(186.55 51.29) rotate(135.2) scale(0.87)"/>
+<use xlink:href="#s" transform="translate(180.96 60.12) rotate(332.78) scale(0.87)"/>
+<use xlink:href="#s" transform="translate(180.65 62.98) rotate(77.69) scale(0.99)"/>
+<use xlink:href="#s" transform="translate(185.07 64.77) rotate(251.47) scale(0.99)"/>
+<use xlink:href="#s" transform="translate(178.39 65.83) rotate(272.25) scale(0.86)"/>
+<use xlink:href="#s" transform="translate(178.52 75.22) rotate(304.34) scale(0.98)"/>
+<use xlink:href="#s" transform="translate(173.63 81.08) rotate(68.05) scale(1.05)"/>
+<use xlink:href="#s" transform="translate(177.28 78.7) rotate(155.19) scale(0.88)"/>
+<use xlink:href="#s" transform="translate(171.52 84.99) rotate(285.13) scale(0.88)"/>
+<use xlink:href="#s" transform="translate(170.45 93.63) rotate(291.09) scale(0.86)"/>
+<use xlink:href="#s" transform="translate(169.46 92.37) rotate(0.16) scale(0.88)"/>
+<use xlink:href="#s" transform="translate(171.09 101.66) rotate(134.73) scale(1.06)"/>
+<use xlink:href="#s" transform="translate(167.57 106.41) rotate(219.85) scale(0.98)"/>
+<use xlink:href="#s" transform="translate(172.82 113.88) rotate(235.54) scale(1.03)"/>
+<use xlink:href="#s" transform="translate(166.81 117.95) rotate(135.28) scale(0.91)"/>
+<use xlink:href="#s" transform="translate(168.24 124.23) rotate(77.69) scale(1.1)"/>
+<use xlink:href="#s" transform="translate(165.07 124.68) rotate(217.41) scale(0.97)"/>
+<use xlink:href="#s" transform="translate(167.57 128.6) rotate(178.48) scale(0.87)"/>
+<use xlink:href="#s" transform="translate(165.46 140.38) rotate(93.94) scale(0.89)"/>
+<use xlink:href="#s" transform="translate(159.46 139.17) rotate(304.77) scale(1.05)"/>
+<use xlink:href="#s" transform="translate(180.06 73.95) rotate(219.2) scale(1.09)"/>
+<use xlink:href="#s" transform="translate(176.71 73.15) rotate(221.3) scale(1.04)"/>
+<use xlink:href="#s" transform="translate(177.56 73.97) rotate(82.16) scale(0.86)"/>
+<use xlink:href="#s" transform="translate(188.45 81.92) rotate(21.85) scale(1.07)"/>
+<use xlink:href="#s" transform="translate(181.28 80.73) rotate(60.15) scale(0.92)"/>
+<use xlink:href="#s" transform="translate(185.98 85.89) rotate(78.18) scale(0.94)"/>
+<use xlink:href="#s" transform="translate(186.86 88.64) rotate(16.55) scale(0.86)"/>
+<use xlink:href="#s" transform="translate(188.1 91.89) rotate(345.59) scale(0.99)"/>
+<use xlink:href="#s" transform="translate(187.34 89.6) rotate(42.34) scale(0.88)"/>
+<use xlink:href="#s" transform="translate(166.84 116.23) rotate(331.94) scale(1.08)"/>
+<use xlink:href="#s" transform="translate(160.29 112.18) rotate(122.71) scale(0.86)"/>
+<use xlink:href="#s" transform="translate(156.44 107.72) rotate(11.82) scale(0.94)"/>
+<use xlink:href="#s" transform="translate(149.64 105.95) rotate(104.99) scale(1.05)"/>
+<use xlink:href="#s" transform="translate(144.97 105.46) rotate(274.9) scale(1.12)"/>
+<use xlink:href="#s" transform="translate(141.94 107.04) rotate(48.78) scale(1.13)"/>
+<use xlink:href="#s" transform="translate(144.81 105.8) rotate(300.77) scale(1.09)"/>
+<use xlink:href="#s" transform="translate(123.31 166.85) rotate(245.9) scale(0.97)"/><use xlink:href="#s" transform="translate(36.44 178.84) rotate(312.17) scale(1.04)"/><use xlink:href="#s" transform="translate(88.42 176.4) rotate(25.36) scale(1.1)"/><use xlink:href="#s" transform="translate(56.92 172.9) rotate(247.68) scale(1.07)"/><use xlink:href="#s" transform="translate(44.81 175.56) rotate(104.79) scale(1.01)"/><use xlink:href="#s" transform="translate(186.09 182.29) rotate(35.84) scale(0.99)"/><use xlink:href="#s" transform="translate(72 170.78) rotate(32.74) scale(1.03)"/><use xlink:href="#s" transform="translate(152.99 173.07) rotate(130.47) scale(1.09)"/>
+<use xlink:href="#s" transform="translate(109.56 181.31) rotate(339.83) scale(0.9)"/><use xlink:href="#s" transform="translate(105.06 181.66) rotate(202.65) scale(0.88)"/><use xlink:href="#s" transform="translate(112.69 181.79) rotate(138.93) scale(1.07)"/><use xlink:href="#s" transform="translate(112.53 182.57) rotate(259.29) scale(0.88)"/><use xlink:href="#s" transform="translate(116.68 183.34) rotate(161.08) scale(0.96)"/><use xlink:href="#s" transform="translate(120.87 185.58) rotate(316.69) scale(1.08)"/><use xlink:href="#s" transform="translate(118.71 187.83) rotate(263.65) scale(1.03)"/><use xlink:href="#s" transform="translate(102.64 188.25) rotate(304.94) scale(0.87)"/><use xlink:href="#s" transform="translate(112.83 189.21) rotate(190.62) scale(0.86)"/>
+</g>
+</svg>

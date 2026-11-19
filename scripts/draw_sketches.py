@@ -535,6 +535,32 @@ def coconut(rng):
     return chip, body
 
 
+def sea_buckthorn(rng):
+    berry = symbol('s', circle(0, 0, 4, O, 1.2, O, 0.5) + circle(-1.3, -1.4, 0.9, '#fde2b8', 0.6, '#fde2b8', 1))
+    silver = '#bcd3ae'
+    twigs = [((200, 12), (184, 44), (170, 92), (162, 158)), ((176, 70), (186, 80), (194, 96), (198, 116)),
+             ((166, 116), (152, 104), (140, 100), (128, 100))]
+    body = []
+    for p0, p1, p2, p3 in twigs:
+        body.append(path(f'M{p0[0]} {p0[1]}C{p1[0]} {p1[1]} {p2[0]} {p2[1]} {p3[0]} {p3[1]}', K, 2.2))
+    # узкие серебристые листья — пучками у веток
+    for (p0, p1, p2, p3), spots in zip(twigs, ((0.08, 0.3, 0.55, 0.98), (0.6, 1.0), (0.7, 1.0))):
+        for t in spots:
+            x, y = bezier(p0, p1, p2, p3, t)
+            for rot in (rng.uniform(-70, -30), rng.uniform(30, 70), rng.uniform(-15, 15) + (180 if t > 0.9 else 0)):
+                body.append(leaf(x, y, rot, rng.uniform(20, 27), 2.8, silver, 0.18))
+    # ягоды облепляют ветку плотно
+    for (p0, p1, p2, p3), (t0, t1, n) in zip(twigs, ((0.18, 0.92, 26), (0.1, 0.55, 9), (0.1, 0.6, 7))):
+        for i in range(n):
+            t = t0 + (t1 - t0) * i / max(1, n - 1)
+            x, y = bezier(p0, p1, p2, p3, t)
+            body.append(use('s', x + rng.uniform(-5, 5), y + rng.uniform(-4, 4), rng.uniform(0, 360),
+                            rng.uniform(0.85, 1.15)))
+    body.append(scatter(rng, 's', 8, s0=0.9, s1=1.1))
+    body.append(heap(rng, 's', 9, 108, 186, 14, 5))
+    return berry, body
+
+
 DRAWINGS = {
     'tykvy-shtiriyskoy': pumpkin,
     'chernogo-tmina': nigella,
@@ -551,6 +577,7 @@ DRAWINGS = {
     'gorchichnoe': mustard,
     'gretskogo-oreha': walnut,
     'kokosovoe': coconut,
+    'oblepihovoe': sea_buckthorn,
 }
 
 

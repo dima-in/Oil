@@ -11,10 +11,13 @@ export function DropIcon({ size = 20 }) {
   )
 }
 
-// Фото в бумажной рамке, как этикетка на полке мастерской.
-export function ProductPhoto({ product, large = false }) {
+// Фото в бумажной рамке, как этикетка на полке мастерской. Есть меловой рисунок сырья —
+// фото приколото к доске, а рисунок рядом; children — наклейка на фото.
+export function ProductPhoto({ product, large = false, children = null }) {
   const [failed, setFailed] = useState(false)
-  return (
+  const [sketchFailed, setSketchFailed] = useState(false)
+  const scene = product.sketch && !sketchFailed
+  const photo = (
     <div className={large ? 'photo photo--large' : 'photo'}>
       {product.image && !failed ? (
         <img src={product.image} alt={product.title} loading={large ? 'eager' : 'lazy'} onError={() => setFailed(true)} />
@@ -23,6 +26,15 @@ export function ProductPhoto({ product, large = false }) {
           <DropIcon size={44} />
         </div>
       )}
+      {children}
+    </div>
+  )
+  if (!scene) return photo
+  return (
+    <div className={large ? 'scene scene--large' : 'scene'}>
+      <img className="scene__sketch" src={product.sketch} alt="" loading={large ? 'eager' : 'lazy'}
+        onError={() => setSketchFailed(true)} />
+      {photo}
     </div>
   )
 }
@@ -63,10 +75,11 @@ export default function ProductCard({ product, inCart, onAdd }) {
   return (
     <article className="product">
       <Link to={link} className="product__photo-link" aria-label={product.title}>
-        <ProductPhoto product={product} />
-        <span className={variant.in_stock ? 'sticker sticker--stock' : 'sticker'}>
-          {variant.in_stock ? 'есть в наличии' : 'отожмём под заказ'}
-        </span>
+        <ProductPhoto product={product}>
+          <span className={variant.in_stock ? 'sticker sticker--stock' : 'sticker'}>
+            {variant.in_stock ? 'есть в наличии' : 'отожмём под заказ'}
+          </span>
+        </ProductPhoto>
       </Link>
 
       <div className="product__body">

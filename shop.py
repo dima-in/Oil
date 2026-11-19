@@ -60,17 +60,32 @@ _schema_ready: set = set()
 
 # ── каталог ──────────────────────────────────────────────────────────────────
 
-def product_image(oil_name) -> Optional[str]:
-    """Оформленная картинка static/images/products/<slug>.webp|jpg, если есть, иначе фото бутылки."""
-    slug = slugify(oil_name)
+def _styled_image(slug) -> Optional[str]:
     for extension in ('webp', 'jpg', 'jpeg', 'png'):
         if (IMAGE_DIR / 'products' / f'{slug}.{extension}').is_file():
             return f'/static/images/products/{slug}.{extension}'
+    return None
+
+
+def product_image(oil_name) -> Optional[str]:
+    """Оформленная картинка static/images/products/<slug>.webp|jpg, если есть, иначе фото бутылки."""
+    styled = _styled_image(slugify(oil_name))
+    if styled:
+        return styled
     name = _norm_name(oil_name)
     for candidate in (name, IMAGE_ALIASES.get(name)):
         if candidate and (IMAGE_DIR / f'{candidate}.jpg').is_file():
             return f'/static/images/{candidate}.jpg'
     return None
+
+
+def product_sketch(oil_name) -> Optional[str]:
+    """Меловой рисунок сырья static/images/sketches/<slug>.svg — рядом с фото бутылки.
+    Оформленной картинке он не нужен: у неё своя сцена."""
+    slug = slugify(oil_name)
+    if _styled_image(slug) or not (IMAGE_DIR / 'sketches' / f'{slug}.svg').is_file():
+        return None
+    return f'/static/images/sketches/{slug}.svg'
 
 
 def _free_stock() -> Dict[str, float]:
@@ -135,6 +150,7 @@ def catalog() -> List[dict]:
             'short_text': card.get('short_text'),
             'avito_url': card.get('avito_url'),
             'image': product_image(row['oil_name']),
+            'sketch': product_sketch(row['oil_name']),
             'sort_order': int(card.get('sort_order') or 0),
             'variants': [],
         })

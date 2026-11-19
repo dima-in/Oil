@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 200 200" width="200" height="200">
+<defs>
+<filter id="c" filterUnits="userSpaceOnUse" x="-10" y="-10" width="220" height="220">
+<feTurbulence type="fractalNoise" baseFrequency="0.07" numOctaves="2" seed="17" result="w"/>
+<feDisplacementMap in="SourceGraphic" in2="w" scale="2.2" xChannelSelector="R" yChannelSelector="G" result="d"/>
+<feTurbulence type="fractalNoise" baseFrequency="1.25" numOctaves="2" seed="11" result="g"/>
+<feColorMatrix in="g" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 3.4 0 0 0 -0.75" result="m"/>
+<feComposite in="d" in2="m" operator="in"/>
+</filter>
+<g id="s"><path d="M-4.5-2C-1-3.4 2.5-3 4.6-1.4C5.4.6 3.6 2.6.8 3C-2 3.2-4.6 1.6-5 .2Z" stroke="#f1ede3" stroke-width="0.9" fill="#f1ede3" fill-opacity="0.55"/></g>
+</defs>
+<g filter="url(#c)" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.94">
+<path d="M200 18C180 20 162 32 148 54" stroke="#b9a06a" stroke-width="2"/>
+<path d="M196.3 18.5q-7.15 5.42 -22.3 18.06" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M196.3 18.5q2.06 7.8 12.13 26.01" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M192.26 19.49q-7.08 4.83 -22.17 16.11" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M192.26 19.49q1.13 7.62 10.26 25.4" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M187.94 20.95q-6.94 4.26 -21.89 14.22" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M187.94 20.95q0.25 7.4 8.5 24.68" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M183.41 22.89q-6.74 3.72 -21.48 12.4" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M183.41 22.89q-0.58 7.15 6.84 23.84" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M178.74 25.28q-6.47 3.2 -20.94 10.67" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M178.74 25.28q-1.36 6.87 5.29 22.9" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M174 28.12q-6.14 2.71 -20.28 9.03" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M174 28.12q-2.07 6.56 3.85 21.86" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M169.26 31.4q-5.76 2.25 -19.51 7.49" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M169.26 31.4q-2.73 6.22 2.55 20.74" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M164.59 35.11q-5.32 1.82 -18.64 6.06" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M164.59 35.11q-3.32 5.87 1.37 19.55" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M160.06 39.23q-4.84 1.42 -17.68 4.74" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M160.06 39.23q-3.84 5.49 0.32 18.3" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M155.74 43.76q-4.31 1.06 -16.63 3.53" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M155.74 43.76q-4.3 5.1 -0.59 16.99" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M151.7 48.69q-3.75 0.74 -15.51 2.46" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M151.7 48.69q-4.68 4.69 -1.37 15.64" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M132 112C132 140 146 158 162 158C178 158 192 140 192 112" stroke="#c9a274" stroke-width="2" fill="#6b4a2b" fill-opacity="0.5"/>
+<path d="M158.02 126.08l-1.79 2.32M145.78 121.38l-1.23 4.48M175.76 128.9l0.14 2.48M152.8 131.54l2.15 3.89M156.35 131.59l2.95 4.11M159.03 128.87l1.92 2.18M173.89 139.36l0.63 4.06M159.62 128.81l0.46 2.88M185.94 122.76l0.21 3.64M157.68 119.61l0.78 3.94M181.3 137.12l0.85 4.78M174.04 142.81l-2.46 4.3M181 144.66l-2.53 4.58M184.91 137.2l-2.78 3.36M169.88 131.74l2.24 4.75M144.08 139.57l0.98 4.2M154.54 148.44l-0.47 2.9M177.97 120.19l-1.75 3.62M150 122.01l-0.19 3.19M175.35 144.91l1.78 3.9M159.02 140.78l-0.88 3M183.6 127.75l-2.8 4.47M152.46 147.17l-2.2 3.74M173.15 136.62l-0.58 4.79M153.24 134.14l-1.33 3.16M143.18 143.38l0.47 2.24M149.91 123.12l-1.81 3.47M174.11 137.47l2.12 2.01M139.98 134.89l-0.24 3.18M175.27 149.36l0.88 4.81M167.76 138.47l-1.81 2.81M176.78 122.87l2.29 2.64M168.36 136.87l-0.65 3.95M162.98 118.42l-2.61 3.8M185.53 124.96l-0.57 2.2M150.19 132.24l2.76 3.59M183.25 132.36l-2.69 4.8M173.19 123.26l-2.18 2.47M174.27 141.89l0.34 2.86M183.65 149.47l2.41 4.36" stroke="#d9b98c" stroke-width="0.9"/>
+<ellipse cx="162" cy="112" rx="30" ry="11" stroke="#c9a274" stroke-width="2" fill="#f1ede3" fill-opacity="0.85"/>
+<ellipse cx="162" cy="113" rx="22" ry="7" stroke="#f1ede3" stroke-width="0.8" fill="#3a332a" fill-opacity="0.9"/>
+<path d="M176 182C182 170 196 168 198 178C196 186 184 190 176 182Z" stroke="#c9a274" stroke-width="1.6" fill="#6b4a2b" fill-opacity="0.5"/>
+<path d="M178 180C184 172 194 171 196 177" stroke="#f1ede3" stroke-width="2"/>
+<use xlink:href="#s" transform="translate(81.48 183.84) rotate(70.96) scale(1.04)"/><use xlink:href="#s" transform="translate(73.19 187.18) rotate(10.96) scale(1.07)"/><use xlink:href="#s" transform="translate(108.91 182.86) rotate(219.59) scale(0.88)"/><use xlink:href="#s" transform="translate(68.11 192.26) rotate(319.96) scale(0.89)"/><use xlink:href="#s" transform="translate(107.79 162.99) rotate(265.41) scale(0.94)"/><use xlink:href="#s" transform="translate(151.86 170.55) rotate(148.04) scale(0.88)"/><use xlink:href="#s" transform="translate(150.9 172.17) rotate(218.75) scale(0.86)"/><use xlink:href="#s" transform="translate(100.59 163.26) rotate(314.06) scale(0.94)"/><use xlink:href="#s" transform="translate(142.79 191.34) rotate(128.1) scale(1.01)"/><use xlink:href="#s" transform="translate(51.15 192.82) rotate(251.47) scale(0.88)"/><use xlink:href="#s" transform="translate(147.08 179.46) rotate(70.1) scale(1.07)"/><use xlink:href="#s" transform="translate(105.81 163.96) rotate(239.43) scale(0.97)"/><use xlink:href="#s" transform="translate(33.33 184.39) rotate(77.31) scale(0.94)"/><use xlink:href="#s" transform="translate(35.27 186.04) rotate(348.69) scale(0.92)"/>
+</g>
+</svg>

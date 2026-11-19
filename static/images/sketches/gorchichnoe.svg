@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 200 200" width="200" height="200">
+<defs>
+<filter id="c" filterUnits="userSpaceOnUse" x="-10" y="-10" width="220" height="220">
+<feTurbulence type="fractalNoise" baseFrequency="0.07" numOctaves="2" seed="15" result="w"/>
+<feDisplacementMap in="SourceGraphic" in2="w" scale="2.2" xChannelSelector="R" yChannelSelector="G" result="d"/>
+<feTurbulence type="fractalNoise" baseFrequency="1.25" numOctaves="2" seed="11" result="g"/>
+<feColorMatrix in="g" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 3.4 0 0 0 -0.75" result="m"/>
+<feComposite in="d" in2="m" operator="in"/>
+</filter>
+<g id="s"><circle cx="0" cy="0" r="2" stroke="#e2b55a" stroke-width="0.8" fill="#e2b55a" fill-opacity="0.45"/></g><g id="f"><ellipse cx="0" cy="-3.8" rx="2.8" ry="3.8" stroke="#f2d46b" stroke-width="1.1" fill="#f2d46b" fill-opacity="0.4" transform="rotate(45 0 0)"/><ellipse cx="0" cy="-3.8" rx="2.8" ry="3.8" stroke="#f2d46b" stroke-width="1.1" fill="#f2d46b" fill-opacity="0.4" transform="rotate(135 0 0)"/><ellipse cx="0" cy="-3.8" rx="2.8" ry="3.8" stroke="#f2d46b" stroke-width="1.1" fill="#f2d46b" fill-opacity="0.4" transform="rotate(225 0 0)"/><ellipse cx="0" cy="-3.8" rx="2.8" ry="3.8" stroke="#f2d46b" stroke-width="1.1" fill="#f2d46b" fill-opacity="0.4" transform="rotate(315 0 0)"/><circle cx="0" cy="0" r="1" stroke="#f6e7a6" stroke-width="0.6" fill="#f6e7a6" fill-opacity="1"/></g>
+</defs>
+<g filter="url(#c)" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.94">
+<path d="M160 198C160 160 158 110 156 50" stroke="#a9cf86" stroke-width="1.8"/>
+<path d="M158 128C166 110 176 96 186 84" stroke="#a9cf86" stroke-width="1.3"/>
+<path d="M159 162C170 160 182 156 194 150C186 162 174 168 159 162Z" stroke="#a9cf86" stroke-width="1.5" fill="#a9cf86" fill-opacity="0.16"/>
+<path d="M159 162C172 162 184 158 194 150" stroke="#a9cf86" stroke-width="0.8"/>
+<path d="M157 120L146.67 100.58" stroke="#c9d27a" stroke-width="2.4"/>
+<path d="M146.67 100.58l-1.88 -3.53" stroke="#c9d27a" stroke-width="1"/>
+<path d="M158 104L169 84.95" stroke="#c9d27a" stroke-width="2.4"/>
+<path d="M169 84.95l2 -3.46" stroke="#c9d27a" stroke-width="1"/>
+<path d="M157 92L145.34 73.34" stroke="#c9d27a" stroke-width="2.4"/>
+<path d="M145.34 73.34l-2.12 -3.39" stroke="#c9d27a" stroke-width="1"/>
+<path d="M156 80L165.64 60.23" stroke="#c9d27a" stroke-width="2.4"/>
+<path d="M165.64 60.23l1.75 -3.6" stroke="#c9d27a" stroke-width="1"/>
+<path d="M170 108L166.18 86.33" stroke="#c9d27a" stroke-width="2.4"/>
+<path d="M166.18 86.33l-0.69 -3.94" stroke="#c9d27a" stroke-width="1"/>
+<path d="M176 100L190.14 83.15" stroke="#c9d27a" stroke-width="2.4"/>
+<path d="M190.14 83.15l2.57 -3.06" stroke="#c9d27a" stroke-width="1"/>
+<path d="M182 92L179.7 70.12" stroke="#c9d27a" stroke-width="2.4"/>
+<path d="M179.7 70.12l-0.42 -3.98" stroke="#c9d27a" stroke-width="1"/>
+<path d="M158 140L170.3 121.76" stroke="#c9d27a" stroke-width="2.4"/>
+<path d="M170.3 121.76l2.24 -3.32" stroke="#c9d27a" stroke-width="1"/>
+<use xlink:href="#f" transform="translate(156 46) rotate(77.23) scale(1.43)"/>
+<use xlink:href="#f" transform="translate(146 52) rotate(82.28) scale(1.3)"/>
+<use xlink:href="#f" transform="translate(166 50) rotate(46.79) scale(1.3)"/>
+<use xlink:href="#f" transform="translate(152 36) rotate(70.45) scale(1.17)"/>
+<use xlink:href="#f" transform="translate(162 34) rotate(57.15) scale(1.17)"/>
+<use xlink:href="#f" transform="translate(172 42) rotate(33.74) scale(1.23)"/>
+<use xlink:href="#f" transform="translate(140 42) rotate(28.77) scale(1.1)"/>
+<use xlink:href="#f" transform="translate(186 82) rotate(71.2) scale(1.3)"/>
+<use xlink:href="#f" transform="translate(192 72) rotate(7.5) scale(1.17)"/>
+<use xlink:href="#f" transform="translate(180 74) rotate(17.11) scale(1.1)"/>
+<use xlink:href="#f" transform="translate(157 26) rotate(82.4) scale(0.91)"/>
+<use xlink:href="#f" transform="translate(196 84) rotate(1.69) scale(0.91)"/>
+<use xlink:href="#s" transform="translate(149.82 168.44) rotate(245.31) scale(1.04)"/><use xlink:href="#s" transform="translate(109.99 184) rotate(306.22) scale(0.99)"/><use xlink:href="#s" transform="translate(43.66 183.6) rotate(221.85) scale(1.06)"/><use xlink:href="#s" transform="translate(131.46 191.91) rotate(108.15) scale(0.97)"/><use xlink:href="#s" transform="translate(104.39 173.87) rotate(225.1) scale(1.14)"/><use xlink:href="#s" transform="translate(129.45 176.42) rotate(133.91) scale(0.97)"/><use xlink:href="#s" transform="translate(42.42 184.55) rotate(112.63) scale(0.92)"/><use xlink:href="#s" transform="translate(42.57 174.7) rotate(98.77) scale(1.11)"/><use xlink:href="#s" transform="translate(188.01 182.72) rotate(174.61) scale(0.99)"/><use xlink:href="#s" transform="translate(146.11 172.04) rotate(282.22) scale(0.99)"/><use xlink:href="#s" transform="translate(36.3 164.44) rotate(291.64) scale(1.14)"/><use xlink:href="#s" transform="translate(62.16 180.47) rotate(64.28) scale(0.95)"/><use xlink:href="#s" transform="translate(176.53 163.23) rotate(149.8) scale(0.89)"/><use xlink:href="#s" transform="translate(129.08 192.36) rotate(31.97) scale(1.09)"/><use xlink:href="#s" transform="translate(144.42 171.88) rotate(314.5) scale(0.88)"/><use xlink:href="#s" transform="translate(190.72 177.91) rotate(178.89) scale(0.98)"/><use xlink:href="#s" transform="translate(129.97 187.93) rotate(80.45) scale(0.89)"/><use xlink:href="#s" transform="translate(81.13 177.71) rotate(111.74) scale(0.94)"/><use xlink:href="#s" transform="translate(189.25 174.32) rotate(280.85) scale(1.12)"/><use xlink:href="#s" transform="translate(29.59 179.16) rotate(346.92) scale(1.01)"/><use xlink:href="#s" transform="translate(96.36 167.72) rotate(208.89) scale(1.06)"/><use xlink:href="#s" transform="translate(96.11 187.43) rotate(290.5) scale(1.07)"/><use xlink:href="#s" transform="translate(82.48 164.25) rotate(11.46) scale(1.02)"/><use xlink:href="#s" transform="translate(129.63 179.98) rotate(35.99) scale(0.95)"/><use xlink:href="#s" transform="translate(165.59 171.17) rotate(326.08) scale(1.01)"/><use xlink:href="#s" transform="translate(112.33 193.85) rotate(270.08) scale(0.91)"/>
+<use xlink:href="#s" transform="translate(110.36 180.07) rotate(297.03) scale(0.88)"/><use xlink:href="#s" transform="translate(114.78 180.17) rotate(139.8) scale(0.92)"/><use xlink:href="#s" transform="translate(113.56 180.41) rotate(344.43) scale(0.96)"/><use xlink:href="#s" transform="translate(119.69 180.76) rotate(75.42) scale(0.92)"/><use xlink:href="#s" transform="translate(121.98 181.37) rotate(118.19) scale(0.96)"/><use xlink:href="#s" transform="translate(108.72 181.6) rotate(153.82) scale(0.98)"/><use xlink:href="#s" transform="translate(101.06 181.69) rotate(302.67) scale(0.87)"/><use xlink:href="#s" transform="translate(101.54 182.01) rotate(254.64) scale(0.89)"/><use xlink:href="#s" transform="translate(120.62 182.07) rotate(132.28) scale(0.91)"/><use xlink:href="#s" transform="translate(119.74 182.13) rotate(158.55) scale(1.03)"/><use xlink:href="#s" transform="translate(100.88 182.19) rotate(313.94) scale(1.04)"/><use xlink:href="#s" transform="translate(124.97 182.5) rotate(57.65) scale(1.03)"/><use xlink:href="#s" transform="translate(100.38 182.88) rotate(139.83) scale(0.91)"/><use xlink:href="#s" transform="translate(116.39 182.89) rotate(18.63) scale(0.93)"/><use xlink:href="#s" transform="translate(101.67 183.04) rotate(127.18) scale(0.87)"/><use xlink:href="#s" transform="translate(123.26 183.12) rotate(185.2) scale(0.93)"/><use xlink:href="#s" transform="translate(96.6 184.09) rotate(70.05) scale(0.99)"/><use xlink:href="#s" transform="translate(124.54 184.13) rotate(337.39) scale(1.06)"/><use xlink:href="#s" transform="translate(97.95 184.16) rotate(16.98) scale(1.09)"/><use xlink:href="#s" transform="translate(114.97 184.25) rotate(287.32) scale(0.89)"/><use xlink:href="#s" transform="translate(116.24 184.34) rotate(335.1) scale(0.86)"/><use xlink:href="#s" transform="translate(108.04 184.73) rotate(101.8) scale(0.96)"/><use xlink:href="#s" transform="translate(122.07 184.9) rotate(174) scale(1.03)"/><use xlink:href="#s" transform="translate(127.66 185.07) rotate(305.88) scale(0.9)"/><use xlink:href="#s" transform="translate(113.56 186.46) rotate(193.87) scale(1.01)"/><use xlink:href="#s" transform="translate(119.61 186.93) rotate(14.67) scale(0.97)"/><use xlink:href="#s" transform="translate(127.97 187.07) rotate(314.56) scale(1.1)"/><use xlink:href="#s" transform="translate(108.73 187.41) rotate(272.92) scale(1.02)"/><use xlink:href="#s" transform="translate(98.45 187.68) rotate(296.17) scale(1.09)"/><use xlink:href="#s" transform="translate(109.36 187.71) rotate(261.87) scale(0.9)"/><use xlink:href="#s" transform="translate(112.56 188.31) rotate(4.48) scale(1.03)"/><use xlink:href="#s" transform="translate(96.63 188.5) rotate(326.54) scale(0.98)"/><use xlink:href="#s" transform="translate(119.31 188.8) rotate(53.31) scale(1.03)"/><use xlink:href="#s" transform="translate(120.56 189.82) rotate(219.2) scale(1.01)"/>
+</g>
+</svg>

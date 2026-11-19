@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import CartPanel from './CartPanel'
 import Home from './Home'
+import Menu from './Menu'
 import ProductPage from './ProductPage'
 import { shopApi } from './shopApi'
 import { phoneDigits, productTitle } from './format'
@@ -12,6 +13,15 @@ function CartIcon() {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M6 6h15l-1.5 9h-12zM6 6 5 3H2M9 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM18 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+    </svg>
+  )
+}
+
+function ChevronIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 9.5c2.6 2 4.6 4 7 6.5 2.3-2.6 4.4-4.6 7-6.8" />
     </svg>
   )
 }
@@ -30,7 +40,9 @@ export default function ShopApp() {
   const [reviews, setReviews] = useState([])
   const [error, setError] = useState(null)
   const [cartOpen, setCartOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [toast, setToast] = useState(null)
+  const menuButtonRef = useRef(null)
   const cart = useCart()
   const { add } = cart
 
@@ -78,6 +90,10 @@ export default function ShopApp() {
     [add],
   )
   const closeCart = useCallback(() => setCartOpen(false), [])
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false)
+    menuButtonRef.current?.focus({ preventScroll: true })
+  }, [])
 
   const shopName = info?.shop_name || 'Выжимальня'
 
@@ -86,10 +102,17 @@ export default function ShopApp() {
       <ScrollToTop />
       <header className="topbar">
         <div className="container topbar__inner">
-          <Link to="/" className="brand" aria-label={`${shopName} — на главную`}>
+          <Link to="/" className="brand brand--home" aria-label={`${shopName} — на главную`}>
             <img src="/static/images/brand/logo.png" alt="" className="brand__logo" />
             <span className="brand__name">{shopName}</span>
           </Link>
+          {/* На телефоне разделы не помещаются в шапку — логотип открывает меню. */}
+          <button ref={menuButtonRef} type="button" className="brand brand--menu" onClick={() => setMenuOpen(true)}
+            aria-label="Меню" aria-expanded={menuOpen} aria-controls="site-menu">
+            <img src="/static/images/brand/logo.png" alt="" className="brand__logo" />
+            <span className="brand__name">{shopName}</span>
+            <ChevronIcon />
+          </button>
           <nav className="topbar__nav" aria-label="Разделы">
             <Link to="/#catalog">Масла</Link>
             <Link to="/#about">Мастерская</Link>
@@ -142,6 +165,7 @@ export default function ShopApp() {
 
       {toast ? <div className="toast" role="status">{toast}</div> : null}
 
+      <Menu open={menuOpen} onClose={closeMenu} info={info} products={products} shopName={shopName} />
       <CartPanel open={cartOpen} onClose={closeCart} cart={cart} priced={priced} info={info} />
     </div>
   )

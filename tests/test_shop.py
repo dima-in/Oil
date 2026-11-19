@@ -171,6 +171,27 @@ def test_product_image_prefers_styled_picture(tmp_path, monkeypatch):
     assert shop.product_image('кокосовое') is None
 
 
+def test_sketch_only_beside_plain_bottle_photo(tmp_path, monkeypatch):
+    (tmp_path / 'products').mkdir()
+    (tmp_path / 'sketches').mkdir()
+    (tmp_path / 'products' / 'oblepihovoe.webp').write_bytes(b'x')
+    for slug in ('oblepihovoe', 'lnyanoe'):
+        (tmp_path / 'sketches' / f'{slug}.svg').write_bytes(b'x')
+    monkeypatch.setattr(shop, 'IMAGE_DIR', tmp_path)
+    assert shop.product_sketch('льняное') == '/static/images/sketches/lnyanoe.svg'
+    # у облепихи своя оформленная сцена — рисунок не нужен
+    assert shop.product_sketch('облепиховое') is None
+    assert shop.product_sketch('кокосовое') is None
+
+
+def test_every_oil_except_styled_ones_has_a_sketch():
+    for product in shop._seed_products():
+        slug = shop.slugify(product['name'])
+        if shop._styled_image(slug):
+            continue
+        assert shop.product_sketch(product['name']) == f'/static/images/sketches/{slug}.svg', slug
+
+
 def test_text_from_outside_loses_emoji_only():
     assert crm.strip_astral('Спасибо 🙏 всё супер 👍') == 'Спасибо всё супер '
     assert crm.strip_astral('Строка\n\nвторая') == 'Строка\n\nвторая'

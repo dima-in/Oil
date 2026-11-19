@@ -30,11 +30,12 @@ export default function Home({ info, products, reviews, error, inCartCount, onAd
   const location = useLocation()
 
   // Переход «Каталог», «Отзывы» со страницы масла: прокрутить к разделу, когда он отрисован.
+  // key меняется и при повторном нажатии того же раздела в меню — тогда тоже прокручиваем.
   useEffect(() => {
     if (!location.hash) return
     const target = document.getElementById(location.hash.slice(1))
     if (target) target.scrollIntoView()
-  }, [location.hash, products])
+  }, [location.hash, location.key, products])
 
   const aboutParagraphs = (info?.about || '').split(/\n\s*\n/).filter(Boolean)
 

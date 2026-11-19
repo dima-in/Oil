@@ -1844,3 +1844,59 @@ textarea.ios-input {
     display: none;
   }
 }
+
+/* ── Сайт и отзывы ───────────────────────────────────────────────────── */
+
+.review-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-admin__row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.review-admin__row--hidden {
+  opacity: 0.6;
+}
+
+.review-admin__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.review-admin__stars {
+  color: var(--warning);
+  letter-spacing: 1px;
+}
+
+.review-admin__text {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.review-admin__actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.review-admin__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}

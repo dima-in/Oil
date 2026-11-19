@@ -5,6 +5,7 @@ import ImportOrdersPanel from './ImportOrdersPanel'
 import PageHeader from './PageHeader'
 import PricelistManager from './PricelistManager'
 import SettingsPanel from './SettingsPanel'
+import ShopPanel from './ShopPanel'
 import UploadPricelist from './UploadPricelist'
 import UsersPanel from './UsersPanel'
 
@@ -14,6 +15,7 @@ const tabs = [
   { id: 'pricelist', label: 'Прайс-лист' },
   { id: 'upload', label: 'Загрузка прайса' },
   { id: 'import', label: 'Импорт заказов' },
+  { id: 'shop', label: 'Сайт и отзывы' },
   { id: 'settings', label: 'Настройки' },
   { id: 'users', label: 'Пользователи' },
 ]
@@ -48,6 +50,7 @@ export default function AdminPanel({ user }) {
         {activeTab === 'economics' ? <EconomicsPanel isAdmin={user?.role === 'admin' && !user?.is_demo} /> : null}
         {activeTab === 'upload' ? <UploadPricelist /> : null}
         {activeTab === 'import' ? <ImportOrdersPanel isAdmin={user?.role === 'admin' && !user?.is_demo} /> : null}
+        {activeTab === 'shop' ? <ShopPanel isAdmin={user?.role === 'admin' && !user?.is_demo} /> : null}
         {activeTab === 'settings' ? <SettingsPanel isAdmin={user?.role === 'admin'} /> : null}
         {activeTab === 'users' ? <UsersPanel user={user} /> : null}
       </section>

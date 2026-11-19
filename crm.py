@@ -47,9 +47,20 @@ DEFAULT_SETTINGS = {
     'bottle_cost': 23,
     'seed_delivery_per_kg': 50,
     'tax_percent': 6,
+    # Витрина магазина (/shop): контакты и профиль на Авито. Рейтинг и число отзывов
+    # обновляет синхронизация с Авито (reviews.py); без неё их можно вписать вручную.
+    'shop_phone': '',
+    'shop_pickup_address': '',
+    'avito_profile_url': '',
+    'avito_rating': 0,
+    'avito_reviews_count': 0,
 }
-INT_SETTINGS = {'presses_count': (1, 20), 'press_batches_per_day': (1, 24), 'settle_days': (0, 14)}
-FLOAT_SETTINGS = {'bottle_cost': (0, 100000), 'seed_delivery_per_kg': (0, 100000), 'tax_percent': (0, 50)}
+INT_SETTINGS = {'presses_count': (1, 20), 'press_batches_per_day': (1, 24), 'settle_days': (0, 14),
+                'avito_reviews_count': (0, 1000000)}
+FLOAT_SETTINGS = {'bottle_cost': (0, 100000), 'seed_delivery_per_kg': (0, 100000), 'tax_percent': (0, 50),
+                  'avito_rating': (0, 5)}
+# Ссылка на профиль показывается покупателям на сайте — только настоящий адрес Авито.
+AVITO_URL_RE = re.compile(r'^https://(www\.|m\.)?avito\.ru/\S*$')
 LOW_MARGIN_PERCENT = 30
 
 INTERACTION_KINDS = {
@@ -1023,6 +1034,10 @@ def update_settings(data: dict) -> dict:
             if isinstance(value, (list, tuple)):
                 value = ','.join(str(day) for day in value)
             value = ','.join(str(day) for day in _work_days(value))
+        elif key == 'avito_profile_url':
+            value = _clean(value, 500) or ''
+            if value and not AVITO_URL_RE.match(value):
+                raise CrmError('Ссылка на профиль должна начинаться с https://www.avito.ru/')
         else:
             value = (_clean(value) or DEFAULT_SETTINGS[key])[:4000]
         values[key] = str(value)

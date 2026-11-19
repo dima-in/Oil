@@ -13,3 +13,6 @@ static/index.js
 static/index.css
 # таблицы заказов с данными клиентов — не в публичный репозиторий
 *.xlsx
+static/shop.js
+static/shop.css
+static/*-*.js

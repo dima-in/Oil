@@ -57,6 +57,11 @@ services:
       # с вымышленными данными; пустое значение выключает демо.
       OIL_DEMO_DB: ${OIL_DEMO_DB-oil_demo}
       OIL_DEMO_AI_PER_HOUR: ${OIL_DEMO_AI_PER_HOUR:-}
+      # Магазин: домен, на котором корень сайта — витрина (без него витрина открыта на /shop),
+      # и ключи API Авито PRO для отзывов на сайте (пусто — отзывы только вручную).
+      OIL_SHOP_HOST: ${OIL_SHOP_HOST:-}
+      AVITO_CLIENT_ID: ${AVITO_CLIENT_ID:-}
+      AVITO_CLIENT_SECRET: ${AVITO_CLIENT_SECRET:-}
     networks:
       - oil_network
     restart: always

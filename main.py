@@ -17,6 +17,8 @@ import assistant
 import auth
 import crm
 import order_import
+import reviews
+import shop
 from auth import get_current_user
 from Catalog import add_price_data_to_table, get_oil_catalog, load_pricelist_from_pdf
 from Customer import Customer
@@ -191,6 +193,8 @@ app.include_router(auth.router)
 app.include_router(crm.router)
 app.include_router(assistant.router)
 app.include_router(order_import.router)
+app.include_router(reviews.router)
+app.include_router(shop.router)
 
 
 @app.on_event('startup')
@@ -201,8 +205,10 @@ def prepare_database():
         auth.ensure_auth_schema()
         crm.ensure_crm_schema()
         assistant.ensure_assistant_schema()
+        reviews.ensure_reviews_schema()
     except Exception as error:  # noqa: BLE001
         log.warning('database is not ready at startup: %s', error)
+    reviews.start_background_sync()
 
 
 def get_current_username(user: dict = Depends(get_current_user)):
@@ -1195,12 +1201,37 @@ async def api_delete_order(order_id: int, current_username: str = Depends(get_cu
     raise HTTPException(status_code=404, detail="Заказ не найден")
 
 
-def _asset_version() -> str:
+def _asset_version(bundle: str = 'index') -> str:
     # Метка сборки в ссылке на бандл: после деплоя браузер берёт новый JS, а не кэш.
     try:
-        return str(int(os.path.getmtime('static/index.js')))
+        return str(int(os.path.getmtime(f'static/{bundle}.js')))
     except OSError:
         return 'dev'
+
+
+def _is_shop_host(request: Request) -> bool:
+    """Домен магазина (OIL_SHOP_HOST, можно несколько через запятую): на нём корень — витрина."""
+    shop_hosts = {host.strip().lower() for host in os.getenv('OIL_SHOP_HOST', '').split(',') if host.strip()}
+    host = (request.headers.get('host') or '').split(':')[0].lower()
+    return host in shop_hosts
+
+
+def _shop_page(request: Request):
+    try:
+        company_name = crm.get_settings()['company_name']
+    except Exception:  # noqa: BLE001 — страница должна открыться и без базы
+        company_name = crm.DEFAULT_SETTINGS['company_name']
+    return templates.TemplateResponse(
+        'shop.html',
+        {"request": request, "asset_version": _asset_version('shop'), "company_name": company_name},
+        headers={'Cache-Control': 'no-cache'},
+    )
+
+
+@app.get('/shop')
+@app.get('/shop/{path:path}')
+def serve_shop(request: Request, path: str = ""):
+    return _shop_page(request)
 
 
 @app.get('/')
@@ -1210,6 +1241,8 @@ def serve_frontend(request: Request, path: str = ""):
     # и /api объявлены выше и сюда не попадают.
     if path.startswith('api/') or path == 'api':
         raise HTTPException(status_code=404, detail='Not Found')
+    if _is_shop_host(request):
+        return _shop_page(request)
     return templates.TemplateResponse(
         'index.html',
         {"request": request, "asset_version": _asset_version()},

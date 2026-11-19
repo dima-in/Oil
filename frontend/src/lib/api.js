@@ -122,6 +122,12 @@ export const api = {
     deleteTask: (id) => request(`/crm/tasks/${id}`, { method: 'DELETE' }),
     stock: () => request('/crm/stock'),
     productionNeeds: (days) => request(`/crm/production-needs${query({ days })}`),
+    reviews: () => request('/crm/reviews'),
+    createReview: (payload) => request('/crm/reviews', { method: 'POST', json: payload }),
+    updateReview: (id, payload) => request(`/crm/reviews/${id}`, { method: 'PATCH', json: payload }),
+    deleteReview: (id) => request(`/crm/reviews/${id}`, { method: 'DELETE' }),
+    syncReviews: () => request('/crm/reviews/sync', { method: 'POST' }),
+    importReviews: (reviews) => request('/crm/reviews/import', { method: 'POST', json: { reviews } }),
   },
 
   assistant: {

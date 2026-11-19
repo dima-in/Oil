@@ -134,6 +134,18 @@ def test_shop_page_is_served_on_shop_path_and_shop_host(monkeypatch):
     assert client.get('/api/nope', headers={'Host': 'maslo.example'}).status_code == 404
 
 
+def test_metrika_counter_only_when_number_is_set(monkeypatch):
+    template = main.templates.get_template('shop.html')
+    page = template.render(request=None, asset_version='1', shop_name='Выжимальня', metrika_id=114371820)
+    assert 'ym(114371820, "init"' in page and 'window.SHOP_METRIKA_ID = 114371820' in page
+    assert 'mc.yandex.ru' not in template.render(request=None, asset_version='1', shop_name='Выжимальня',
+                                                 metrika_id=None)
+    monkeypatch.setattr(shop, 'shop_content', lambda: {'metrika_id': '114371820'})
+    assert shop.metrika_id() == 114371820
+    monkeypatch.setattr(shop, 'shop_content', lambda: {'metrika_id': '<script>'})
+    assert shop.metrika_id() is None
+
+
 def test_info_exposes_only_public_settings(monkeypatch):
     monkeypatch.setattr(crm, 'get_settings', lambda: dict(
         SETTINGS, shop_phone='+7 900 000-00-00', avito_profile_url='https://www.avito.ru/brands/x',

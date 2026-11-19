@@ -11,8 +11,24 @@
     <link rel="icon" type="image/png" href="/static/images/brand/logo.png" />
     <script type="module" crossorigin src="/static/shop.js?v={{ asset_version }}"></script>
     <link rel="stylesheet" crossorigin href="/static/shop.css?v={{ asset_version }}" />
+    {% if metrika_id %}
+    <!-- Яндекс Метрика. Переходы внутри витрины досылает ShopApp (metrika.js). -->
+    <script>
+      window.SHOP_METRIKA_ID = {{ metrika_id }};
+      (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+      m[i].l=1*new Date();
+      for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+      k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+      (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+      ym({{ metrika_id }}, "init", {clickmap: true, trackLinks: true, accurateTrackBounce: true, webvisor: true,
+        ecommerce: "dataLayer"});
+    </script>
+    {% endif %}
   </head>
   <body>
+    {% if metrika_id %}
+    <noscript><div><img src="https://mc.yandex.ru/watch/{{ metrika_id }}" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+    {% endif %}
     <div id="shop-root"></div>
   </body>
 </html>

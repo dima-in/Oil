@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import CartPanel from './CartPanel'
 import Home from './Home'
 import Menu from './Menu'
+import { metrika } from './metrika'
 import ProductPage from './ProductPage'
 import { shopApi } from './shopApi'
 import { phoneDigits, productTitle } from './format'
@@ -24,6 +25,18 @@ function ChevronIcon() {
       <path d="M5 9.5c2.6 2 4.6 4 7 6.5 2.3-2.6 4.4-4.6 7-6.8" />
     </svg>
   )
+}
+
+// Витрина — одна страница: переходы между маслами Метрика сама не замечает, досылаем их.
+function MetrikaHits() {
+  const { pathname, search } = useLocation()
+  const previous = useRef(null)
+  useEffect(() => {
+    const url = window.location.href
+    if (previous.current !== null) metrika('hit', url, { referer: previous.current })
+    previous.current = url
+  }, [pathname, search])
+  return null
 }
 
 function ScrollToTop() {
@@ -100,6 +113,7 @@ export default function ShopApp() {
   return (
     <div className="shop">
       <ScrollToTop />
+      <MetrikaHits />
       <header className="topbar">
         <div className="container topbar__inner">
           <Link to="/" className="brand brand--home" aria-label={`${shopName} — на главную`}>

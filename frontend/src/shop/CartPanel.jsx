@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { shopApi } from './shopApi'
 import { money, phoneDigits, shortDate, volumeLabel } from './format'
+import { metrika } from './metrika'
 import { lineKey } from './useCart'
 
 const ADDRESS_HINTS = {
@@ -62,6 +63,7 @@ export default function CartPanel({ open, onClose, cart, priced, info }) {
         website: form.website,
       })
       setDone(result)
+      metrika('reachGoal', 'order')
       cart.clear()
       setForm(EMPTY_FORM)
     } catch (requestError) {
@@ -143,16 +145,16 @@ export default function CartPanel({ open, onClose, cart, priced, info }) {
               <legend>Контакты</legend>
               <label className="field">
                 <span>Имя</span>
-                <input value={form.name} onChange={set('name')} autoComplete="name" required maxLength={100} />
+                <input className="ym-disable-keys" value={form.name} onChange={set('name')} autoComplete="name" required maxLength={100} />
               </label>
               <label className="field">
                 <span>Телефон</span>
-                <input value={form.phone} onChange={set('phone')} type="tel" autoComplete="tel" inputMode="tel"
+                <input className="ym-disable-keys" value={form.phone} onChange={set('phone')} type="tel" autoComplete="tel" inputMode="tel"
                   placeholder="+7 900 000-00-00" required maxLength={20} />
               </label>
               <label className="field">
                 <span>Email <em>— необязательно</em></span>
-                <input value={form.email} onChange={set('email')} type="email" autoComplete="email" maxLength={120} />
+                <input className="ym-disable-keys" value={form.email} onChange={set('email')} type="email" autoComplete="email" maxLength={120} />
               </label>
             </fieldset>
 
@@ -177,13 +179,13 @@ export default function CartPanel({ open, onClose, cart, priced, info }) {
               {needsAddress ? (
                 <label className="field">
                   <span>Адрес</span>
-                  <textarea rows={2} value={form.address} onChange={set('address')} autoComplete="street-address"
+                  <textarea className="ym-disable-keys" rows={2} value={form.address} onChange={set('address')} autoComplete="street-address"
                     placeholder={ADDRESS_HINTS[form.method]} maxLength={300} />
                 </label>
               ) : null}
               <label className="field">
                 <span>Комментарий <em>— необязательно</em></span>
-                <textarea rows={2} value={form.comment} onChange={set('comment')} maxLength={1000}
+                <textarea className="ym-disable-keys" rows={2} value={form.comment} onChange={set('comment')} maxLength={1000}
                   placeholder="Когда удобно позвонить, пожелания по заказу" />
               </label>
               {/* Скрытое поле-ловушка для ботов: человек его не видит и не заполняет. */}

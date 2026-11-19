@@ -1225,7 +1225,8 @@ def _shop_page(request: Request):
         shop_name = crm.DEFAULT_SETTINGS['shop_name']
     return templates.TemplateResponse(
         'shop.html',
-        {"request": request, "asset_version": _asset_version('shop'), "shop_name": shop_name},
+        {"request": request, "asset_version": _asset_version('shop'), "shop_name": shop_name,
+         "metrika_id": shop.metrika_id()},
         headers={'Cache-Control': 'no-cache'},
     )
 

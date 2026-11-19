@@ -327,6 +327,12 @@ def shop_content() -> dict:
     return content if isinstance(content, dict) else {}
 
 
+def metrika_id() -> Optional[int]:
+    """Номер счётчика Яндекс Метрики (data/shop_content.json); нет номера — счётчика на витрине нет."""
+    value = str(shop_content().get('metrika_id') or '').strip()
+    return int(value) if value.isdigit() else None
+
+
 def shop_info() -> dict:
     settings = crm.get_settings()
     content = shop_content()

@@ -154,10 +154,19 @@ def test_info_exposes_only_public_settings(monkeypatch):
     ('тыквы штирийской', 'tykvy-shtiriyskoy', 'Масло тыквы штирийской'),
     ('черного тмина', 'chernogo-tmina', 'Масло черного тмина'),
     ('кунжут черный', 'kunzhut-chernyy', 'Масло чёрного кунжута'),
+    # так масло записано в рабочем прайсе — карточка та же, что у «кунжут нешлифованный»
+    ('кунжут не шлифованый', 'kunzhut-neshlifovannyy', 'Масло нешлифованного кунжута'),
+    ('Кунжут нешлифованный', 'kunzhut-neshlifovannyy', 'Масло нешлифованного кунжута'),
 ])
 def test_slug_and_default_title(name, slug, title):
     assert shop.slugify(name) == slug
     assert shop.default_title(name) == title
+
+
+def test_price_list_spelling_finds_the_site_card():
+    assert shop.card_key('кунжут не шлифованый') == shop.card_key('кунжут нешлифованный')
+    assert shop.product_sketch('кунжут не шлифованый') == '/static/images/sketches/kunzhut-neshlifovannyy.svg'
+    assert shop.product_image('кунжут не шлифованый') == '/static/images/кунжут не шлифованый.jpg'
 
 
 def test_product_image_prefers_styled_picture(tmp_path, monkeypatch):

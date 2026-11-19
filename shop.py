@@ -49,6 +49,8 @@ SEED_FILE = Path(__file__).resolve().parent / 'data' / 'shop_products.json'
 CONTENT_FILE = Path(__file__).resolve().parent / 'data' / 'shop_content.json'
 # Фото лежат под старыми именами файлов.
 IMAGE_ALIASES = {'кунжут нешлифованный': 'кунжут не шлифованый'}
+# В прайсе масло бывает записано иначе, чем в карточке сайта: карточка, адрес и рисунок — общие.
+NAME_ALIASES = {'кунжут не шлифованый': 'кунжут нешлифованный'}
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 # Не ищем отзывы по цвету: «черного тмина» и «кунжут черный» — разные масла.
 COMMON_STEMS = ('черн', 'черё', 'бел', 'масл', 'сыро')
@@ -107,16 +109,22 @@ SPECIAL_TITLES = {
 }
 
 
+def card_key(name) -> str:
+    """Ключ карточки масла: название из прайса с поправкой на другое написание."""
+    key = _norm_name(name)
+    return NAME_ALIASES.get(key, key)
+
+
 def slugify(name) -> str:
     """«тыквы штирийской» → «tykvy-shtiriyskoy»: адрес страницы масла."""
-    text = ''.join(TRANSLIT.get(char, char) for char in _norm_name(name))
+    text = ''.join(TRANSLIT.get(char, char) for char in card_key(name))
     return re.sub(r'[^a-z0-9]+', '-', text).strip('-') or 'oil'
 
 
 def default_title(name) -> str:
     """В прайсе коротко («льняное», «черного тмина») — покупателю пишем «масло»."""
     clean = str(name or '').strip()
-    key = _norm_name(clean)
+    key = card_key(clean)
     if key in SPECIAL_TITLES:
         return SPECIAL_TITLES[key]
     if key.startswith('масло'):
@@ -140,7 +148,7 @@ def catalog() -> List[dict]:
     products: Dict[str, dict] = {}
     for row in rows:
         key = _norm_name(row['oil_name'])
-        card = cards.get(key, {})
+        card = cards.get(card_key(row['oil_name']), {})
         if card.get('is_hidden'):
             continue
         product = products.setdefault(key, {
@@ -195,7 +203,7 @@ def ensure_products_schema():
                 """INSERT IGNORE INTO shop_products (product_key, title, short_text, description, avito_url, sort_order)
                    VALUES (%s, %s, %s, %s, %s, %s)""",
                 (
-                    _norm_name(seed.get('name'))[:100],
+                    card_key(seed.get('name'))[:100],
                     _clean(seed.get('title'), 150),
                     _clean(seed.get('short_text'), 300),
                     _clean(seed.get('description')),
@@ -250,7 +258,7 @@ def product_page(slug) -> dict:
     product = next((item for item in catalog() if item['slug'] == slug), None)
     if product is None:
         raise crm.NotFound('Такого масла нет в каталоге')
-    card = product_cards().get(_norm_name(product['name']), {})
+    card = product_cards().get(card_key(product['name']), {})
     return {**product, 'description': card.get('description'), 'reviews': reviews_about(product['name'])}
 
 
@@ -259,7 +267,7 @@ def list_product_cards() -> List[dict]:
     ensure_products_schema()
     with UseDatabase(config) as cursor:
         cursor.execute("SELECT DISTINCT oil_name FROM price_list WHERE price > 0")
-        names = {_norm_name(row[0]): row[0] for row in cursor.fetchall()}
+        names = {card_key(row[0]): row[0] for row in cursor.fetchall()}
     cards = product_cards()
     result = []
     for key, name in names.items():
@@ -298,7 +306,7 @@ def update_product_card(slug, data: dict) -> dict:
                    description = VALUES(description), avito_url = VALUES(avito_url),
                    is_hidden = VALUES(is_hidden), sort_order = VALUES(sort_order)""",
             (
-                _norm_name(product['name'])[:100],
+                card_key(product['name'])[:100],
                 _clean(data.get('title'), 150),
                 _clean(data.get('short_text'), 300),
                 _clean(data.get('description'), 20000),

@@ -59,7 +59,7 @@ services:
       OIL_DEMO_AI_PER_HOUR: ${OIL_DEMO_AI_PER_HOUR:-}
       # Магазин: домен, на котором корень сайта — витрина (без него витрина открыта на /shop),
       # и ключи API Авито PRO для отзывов на сайте (пусто — отзывы только вручную).
-      OIL_SHOP_HOST: ${OIL_SHOP_HOST:-}
+      OIL_SHOP_HOST: ${OIL_SHOP_HOST:-vyzhimalnya.ru,www.vyzhimalnya.ru}
       AVITO_CLIENT_ID: ${AVITO_CLIENT_ID:-}
       AVITO_CLIENT_SECRET: ${AVITO_CLIENT_SECRET:-}
     networks:
@@ -73,3 +73,22 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # HTTPS-прокси перед приложением: https://vyzhimalnya.ru (витрина) и https://crm.vyzhimalnya.ru (CRM).
+  # Настройки — в Caddyfile, сертификаты хранятся в ./caddy_data.
+  caddy:
+    image: dockerhub.timeweb.cloud/library/caddy:2.8.4
+    container_name: oil-caddy
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy_data:/data
+      - ./caddy_config:/config
+    networks:
+      - oil_network
+    restart: always

@@ -1,0 +1,15 @@
+# HTTPS для сайта. Caddy сам получает и продлевает сертификаты Let's Encrypt
+# (нужны A-записи домена на IP сервера и свободные порты 80 и 443).
+# Витрина — на vyzhimalnya.ru (см. OIL_SHOP_HOST в docker-compose.yml), CRM — на crm.vyzhimalnya.ru.
+
+vyzhimalnya.ru, crm.vyzhimalnya.ru {
+	encode zstd gzip
+	reverse_proxy web:8000 {
+		# Настоящий IP покупателя: по нему ограничение заказов и попыток входа.
+		header_up X-Real-IP {remote_host}
+	}
+}
+
+www.vyzhimalnya.ru {
+	redir https://vyzhimalnya.ru{uri} permanent
+}

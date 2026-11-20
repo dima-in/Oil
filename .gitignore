@@ -18,3 +18,5 @@ static/shop.css
 static/*-*.js
 static/*.woff
 static/*.woff2
+caddy_data/
+caddy_config/
